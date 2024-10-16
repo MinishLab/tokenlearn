@@ -1,11 +1,16 @@
 [project]
-name = "PACKAGE"
-description = "DESCRIPTION"
+name = "nanofit"
+description = "Fit nano models"
 readme = "README.md"
 version = "0.1.0"
 requires-python = ">=3.10"
 
 dependencies = [
+    "model2vec",
+    "sentence-transformers",
+    "torch",
+    "datasets",
+    "more-itertools>=10.5.0",
 ]
 
 [build-system]
@@ -66,7 +71,7 @@ warn_unused_configs = true
 ignore_missing_imports = true
 
 [tool.setuptools]
-packages = ["PACKAGE"]
+packages = ["nanofit"]
 
 [tool.setuptools_scm]
 # can be empty if no extra settings are needed, presence enables setuptools_scm
