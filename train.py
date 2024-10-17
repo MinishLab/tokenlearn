@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 
@@ -14,7 +15,17 @@ def collect_means_and_texts(paths: list[Path]) -> tuple[list[str], np.ndarray]:
     txts = []
     v = []
     for path in paths:
-        r = Reach.load(path)
+        if not path.name.endswith(".json"):
+            continue
+        try:
+            r = Reach.load(path)
+        except KeyError:
+            # Workaround for old format reach
+            # whatever
+            vectors_path = str(path).replace("_items.json", "_vectors.npy")
+            items = json.load(open(path))["items"]
+            vectors = np.load(open(vectors_path, "rb"))
+            r = Reach(vectors, items)
         txts.extend(r.sorted_items)
         v.append(r.vectors)
 
@@ -24,13 +35,10 @@ def collect_means_and_texts(paths: list[Path]) -> tuple[list[str], np.ndarray]:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    s = distill("baai/bge-base-en-v1.5", pca_dims=None, apply_zipf=False)
-    s.embedding_bag.requires_grad_(True)
+    s = distill("baai/bge-base-en-v1.5", pca_dims=256, apply_zipf=False)
 
-    w = s.embedding.weight.clone().detach()
-
-    paths = sorted(Path("fineweb").glob("*.json"))
-    train_paths, test_paths = paths[:-2], paths[-2:]
+    paths = sorted(Path("data/c4_old").glob("*.json"))
+    train_paths, test_paths = paths[:-1], paths[-1:]
 
     train_txt, train_vec = collect_means_and_texts(train_paths)
     val_txt, val_vec = collect_means_and_texts(train_paths)
@@ -38,4 +46,4 @@ if __name__ == "__main__":
     train_data = TextDataset(train_txt, torch.from_numpy(train_vec), s.tokenizer)
     val_data = TextDataset(val_txt, torch.from_numpy(val_vec), s.tokenizer)
 
-    model = train_supervised(train_data, val_data, s)
+    model, trained_model = train_supervised(train_data, val_data, s, device="cpu", batch_size=32)

@@ -81,9 +81,8 @@ def featurize(
 
 if __name__ == "__main__":
     model = SentenceTransformer("baai/bge-base-en-v1.5")
-    from datasets import load_dataset
 
     # use name="sample-10BT" to use the 10BT sample
     fw = load_dataset("HuggingFaceFW/fineweb-edu", name="CC-MAIN-2024-10", split="train", streaming=True)
 
-    a, b = featurize(fw, model, "fineweb")
+    a, b = featurize(fw, model, "data/fineweb")
