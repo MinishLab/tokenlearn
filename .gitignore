@@ -163,3 +163,5 @@ cython_debug/
 
 local/
 results/
+local_models/
+data/
