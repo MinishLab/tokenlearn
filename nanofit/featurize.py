@@ -21,6 +21,7 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
 
     txts = []
     means = []
+    seen = set()
 
     for index, batch in enumerate(tqdm(batched(texts, 32))):
         i = index // _SAVE_INTERVAL
@@ -35,7 +36,6 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
             x.cpu().numpy() for x in model.encode(list_batch, output_value="token_embeddings", convert_to_numpy=True)
         ]
 
-        seen = set()
         for tokenized_id, token_embedding in zip(tokenized_ids, token_embeddings, strict=True):
             # Truncate to actual length of vectors, remove CLS and SEP.
             text = model.tokenizer.decode(tokenized_id[1 : len(token_embedding) - 1])
@@ -51,6 +51,7 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
             r.save(out_path / f"featurized_{(index // _SAVE_INTERVAL)}.json")
             txts = []
             means = []
+            seen = set()
     else:
         if means:
             r = Reach(means, txts)
