@@ -1,7 +1,39 @@
+import json
+from collections import Counter
+from pathlib import Path
+
+import numpy as np
+import torch
 from evaluation import CustomMTEB, TaskType, get_tasks, make_leaderboard, parse_mteb_results, summarize_results
 from evaluation.classification_benchmark import ClassificationBenchmark
 from model2vec import StaticModel
 from mteb import ModelMeta
+from reach import Reach
+from sklearn.decomposition import PCA
+from tqdm import tqdm
+
+
+def collect_means_and_texts(paths: list[Path]) -> tuple[list[str], np.ndarray]:
+    """Collect means and texts from a bunch of reach paths."""
+    txts = []
+    v = []
+    for path in paths:
+        if not path.name.endswith(".json"):
+            continue
+        try:
+            r = Reach.load(path)
+        except KeyError:
+            # Workaround for old format reach
+            # whatever
+            vectors_path = str(path).replace("_items.json", "_vectors.npy")
+            items = json.load(open(path))["items"]
+            vectors = np.load(open(vectors_path, "rb"))
+            r = Reach(vectors, items)
+        txts.extend(r.sorted_items)
+        v.append(r.vectors)
+
+    return txts, np.concatenate(v)
+
 
 # Get all available tasks
 tasks = get_tasks(
@@ -14,17 +46,61 @@ tasks = get_tasks(
         TaskType.CLUSTERING,
         TaskType.RERANKING,
         TaskType.SUMMARIZATION,
+        TaskType.RETRIEVAL,
     ]
 )
 # Define the CustomMTEB object with the specified tasks
 evaluation = CustomMTEB(tasks=tasks)
 
 # Load the model
-model_name = "potion_w_mse_loss_256_norm"
+model_name = "potion_large_1024"
 model = StaticModel.from_pretrained(model_name)
+dim = model.dim
+
+# NOTE: uncomment this if your model is not reweighted yet.
+# This code block will reweight the model's embeddings based on the
+# counts of the words in the training data.
+# And then applies PCA.
+"""paths = sorted(Path("data/c4_old").glob("*.json"))
+paths.extend(sorted(Path("data/fineweb").glob("*.json")))
+
+txt, _ = collect_means_and_texts(paths)
+
+counts: Counter[str] = Counter()
+for t in tqdm(txt):
+    counts.update(model.tokenizer.encode(t, add_special_tokens=False).ids)
+
+sum_id = sum(counts.values()) + len(model.tokens)
+x = np.full(len(model.embedding.weight), 1 / sum_id)
+
+for word_id, count in counts.items():
+    x[word_id] = (count + 1) / sum_id
+
+w = model.embedding_bag.weight.detach().numpy()
+
+w = np.nan_to_num(w)
+
+dim = 256
+p = PCA(n_components=dim)
+w = p.fit_transform(w)
+
+# w /= np.linalg.norm(w, axis=1)[:, None]
+
+alpha = 1e-3
+f = alpha / (alpha + x)
+w *= f[:, None]
+model.embedding_bag.weight = torch.nn.Parameter(torch.from_numpy(w), requires_grad=False)
+model.embedding.weight = torch.nn.Parameter(torch.from_numpy(w), requires_grad=False)
+
+model.normalize = True"""
 
 # Optionally, add model metadata in MTEB format
-model.mteb_model_meta = ModelMeta(name=model_name, revision="no_revision_available", release_date=None, languages=None)
+model.mteb_model_meta = ModelMeta(
+    name=model_name + f"_reweight+pca_{dim}+fineweb_counts_NORMalized",
+    revision="no_revision_available",
+    release_date=None,
+    languages=None,
+)
 
 # Run the evaluation
 results = evaluation.run(model, eval_splits=["test"], output_folder=f"results")
@@ -35,3 +111,6 @@ task_scores = summarize_results(parsed_results)
 
 # Print the results in a leaderboard format
 leaderboard = make_leaderboard(task_scores)
+
+c = ClassificationBenchmark(model, f"results/{model_name}")
+c.run()

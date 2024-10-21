@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import cast
 
 import numpy as np
 import torch
@@ -17,18 +16,6 @@ logger = logging.getLogger(__name__)
 _MIN_DELTA = 0.001
 
 
-def _weighted_average(x: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
-    """
-    Computes a weighted average of x.
-
-    :param x: The input tensor.
-    :param weights: The weights to use.
-    :return: The weighted average.
-    """
-    summed = weights.sum(1, keepdim=True) + 1e-16
-    return torch.bmm(weights.unsqueeze(1), x).squeeze(1) / summed
-
-
 class StaticModelFineTuner(nn.Module):
     def __init__(self, vectors: torch.Tensor, out_dim: int, pad_id: int) -> None:
         """Initialize from a model."""
@@ -36,17 +23,23 @@ class StaticModelFineTuner(nn.Module):
         self.embeddings = nn.Embedding.from_pretrained(vectors.clone(), freeze=False, padding_idx=0)
         self.n_classes = out_dim
         self.out_layer = nn.Linear(vectors.shape[1], out_dim)
-        weights = torch.zeros(len(vectors))
-        weights[pad_id] = -100_000
+        weights = torch.ones(len(vectors))
+        weights[pad_id] = 0
         self.w = nn.Parameter(weights)
 
     def sub_forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the mean."""
-        w = torch.sigmoid(self.w[x])
+        w = self.w[x]
+        zeros = (x != 0).float()
+        length = zeros.sum(1)
         embedded = self.embeddings(x)
-        weighted_average = _weighted_average(embedded, w)
+        # Simulate actual mean
+        # Zero out the padding
+        embedded = embedded * zeros[:, :, None]
+        embedded = (embedded * w[:, :, None]).sum(1) / w.sum(1)[:, None]
+        embedded = embedded / length[:, None]
 
-        return weighted_average
+        return embedded
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass through the mean, and a classifier layer after."""
@@ -84,7 +77,7 @@ class TextDataset(Dataset):
         """Collate function."""
         texts, targets = zip(*batch)
 
-        tensors = [torch.LongTensor(x) for x in texts]
+        tensors = [torch.LongTensor(x).int() for x in texts]
         padded = pad_sequence(tensors, batch_first=True, padding_value=0)
 
         return padded, torch.stack(targets)
@@ -100,7 +93,7 @@ def train_supervised(
     model: StaticModel,
     max_epochs: int = 100,
     lr: float = 1e-3,
-    patience: int = 3,
+    patience: int | None = 3,
     device: str = "cpu",
     batch_size: int = 256,
 ) -> StaticModel:
@@ -159,18 +152,21 @@ def train_supervised(
                     n += 1
 
                 loss_avg /= n
-                if (lowest_loss - loss_avg) > _MIN_DELTA:
-                    param_dict = trainable_model.state_dict()
-                    curr_patience = patience
-                    lowest_loss = loss_avg
-                else:
-                    curr_patience -= 1
-                    if curr_patience == 0:
-                        break
+
+                if patience is not None and curr_patience is not None:
+                    if (lowest_loss - loss_avg) > _MIN_DELTA:
+                        param_dict = trainable_model.state_dict()
+                        curr_patience = patience
+                        lowest_loss = loss_avg
+                    else:
+                        curr_patience -= 1
+                        if curr_patience == 0:
+                            break
+                    patience_str = "🌝" * curr_patience
+                    logger.info(f"Patience level: {patience_str}")
+                    logger.info(f"Lowest loss: {lowest_loss:.3f}")
+
                 logger.info(f"Validation loss: {loss_avg:.3f}")
-                logger.info(f"Lowest loss: {lowest_loss:.3f}")
-                patience_str = "🌝" * curr_patience
-                logger.info(f"Patience level: {patience_str}")
 
             trainable_model.train()
     except KeyboardInterrupt:
@@ -182,7 +178,9 @@ def train_supervised(
     with torch.no_grad():
         # indices = torch.tensor(list(range(len(trainable_model.embeddings.weight))))
         # offsets = torch.tensor(list(range(0, len(indices))))
-        vectors = trainable_model.sub_forward(torch.arange(len(trainable_model.w))[:, None]).cpu().numpy()
+        vectors = (
+            trainable_model.sub_forward(torch.arange(len(trainable_model.embeddings.weight))[:, None]).cpu().numpy()
+        )
         # vectors = trainable_model.embeddings.weight.cpu().numpy()
 
     new_model = StaticModel(vectors=vectors, tokenizer=model.tokenizer, config=model.config)

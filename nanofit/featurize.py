@@ -11,19 +11,13 @@ from tqdm import tqdm
 _SAVE_INTERVAL = 10
 
 
-def featurize(
-    texts: Iterable[str], model: SentenceTransformer, output_dir: str
-) -> tuple[np.ndarray, list[tuple[str, np.ndarray]]]:
+def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str) -> list[tuple[str, np.ndarray]]:
     """Featurize text using a sentence transformer."""
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
     model_dim = model.get_sentence_embedding_dimension()
     if model_dim is None:
         raise ValueError("Model does not have a fixed dimension")
-
-    vocab_size: int = model.tokenizer.vocab_size
-    token_counts = np.zeros(vocab_size)
-    token_sums = np.zeros((vocab_size, model_dim))
 
     txts = []
     means = []
@@ -60,9 +54,6 @@ def featurize(
             mean = np.mean(token_embedding[1:-1], axis=0)
             txts.append(text)
             means.append(mean)
-            for token_id, embedding in zip(tokenized_id, token_embedding):
-                token_counts[token_id] += 1
-                token_sums[token_id] += embedding
 
         if index > 0 and (index + 1) % _SAVE_INTERVAL == 0:
             r = Reach(means, txts)
@@ -74,15 +65,12 @@ def featurize(
             r = Reach(means, txts)
             r.save(out_path / f"featurized_{(index // _SAVE_INTERVAL)}.json")
 
-    tokens_means = token_sums / (token_counts[:, None] + 1e-16)
-
-    return tokens_means, means
+    return means
 
 
 if __name__ == "__main__":
     model = SentenceTransformer("baai/bge-base-en-v1.5")
 
     # use name="sample-10BT" to use the 10BT sample
-    fw = load_dataset("HuggingFaceFW/fineweb-edu", name="CC-MAIN-2024-10", split="train", streaming=True)
-
-    a, b = featurize(fw, model, "data/fineweb")
+    fw = load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-10", split="train", streaming=True)
+    means = featurize(fw, model, "data/fineweb")
