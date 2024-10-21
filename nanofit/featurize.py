@@ -31,26 +31,17 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
 
         # Already truncated to model max_length
         tokenized_ids = model.tokenize(list_batch)["input_ids"]
-        # Remove texts that have the same representation.
-
-        texts = []
-        seen = set()
-        for ids, text in zip(tokenized_ids, list_batch):
-            tuple_ids = tuple(ids)
-            if tuple_ids in seen:
-                continue
-            seen.add(tuple(ids))
-            texts.append(text)
-
-        tokenized_ids = model.tokenize(texts)["input_ids"]
-
         token_embeddings: list[np.ndarray] = [
-            x.cpu().numpy() for x in model.encode(texts, output_value="token_embeddings", convert_to_numpy=True)
+            x.cpu().numpy() for x in model.encode(list_batch, output_value="token_embeddings", convert_to_numpy=True)
         ]
 
+        seen = set()
         for tokenized_id, token_embedding in zip(tokenized_ids, token_embeddings, strict=True):
             # Truncate to actual length of vectors, remove CLS and SEP.
             text = model.tokenizer.decode(tokenized_id[1 : len(token_embedding) - 1])
+            if text in seen:
+                continue
+            seen.add(text)
             mean = np.mean(token_embedding[1:-1], axis=0)
             txts.append(text)
             means.append(mean)
