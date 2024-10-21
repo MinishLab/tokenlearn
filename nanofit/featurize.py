@@ -28,7 +28,7 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
         if (out_path / f"featurized_{i}.json").exists():
             continue
         # Consume the generator
-        list_batch = list(batch)
+        list_batch = [x for x in [x.strip() for x in batch] if x]
 
         # Already truncated to model max_length
         tokenized_ids = model.tokenize(list_batch)["input_ids"]
