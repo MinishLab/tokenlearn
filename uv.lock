@@ -851,6 +851,7 @@ dependencies = [
     { name = "datasets" },
     { name = "model2vec" },
     { name = "more-itertools" },
+    { name = "reach" },
     { name = "sentence-transformers" },
     { name = "torch" },
 ]
@@ -877,6 +878,7 @@ requires-dist = [
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-coverage", marker = "extra == 'dev'" },
+    { name = "reach" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "sentence-transformers" },
     { name = "torch" },
@@ -1510,6 +1512,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/fe/0f/25911a9f080464c59fab9027482f822b86bf0608957a5fcc6eaac85aa515/PyYAML-6.0.2-cp313-cp313-musllinux_1_1_x86_64.whl", hash = "sha256:68ccc6023a3400877818152ad9a1033e3db8625d899c72eacb5a668902e4d652", size = 751597 },
     { url = "https://files.pythonhosted.org/packages/14/0d/e2c3b43bbce3cf6bd97c840b46088a3031085179e596d4929729d8d68270/PyYAML-6.0.2-cp313-cp313-win32.whl", hash = "sha256:bc2fa7c6b47d6bc618dd7fb02ef6fdedb1090ec036abab80d4681424b84c1183", size = 140527 },
     { url = "https://files.pythonhosted.org/packages/fa/de/02b54f42487e3d3c6efb3f89428677074ca7bf43aae402517bc7cca949f3/PyYAML-6.0.2-cp313-cp313-win_amd64.whl", hash = "sha256:8388ee1976c416731879ac16da0aff3f63b286ffdd57cdeb95f3f2e085687563", size = 156446 },
+]
+
+[[package]]
+name = "reach"
+version = "4.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2b/d3/be84f08baff840bed2f9f04287f741d026860fba81b664e6dea521a6780a/reach-4.1.1.tar.gz", hash = "sha256:86e48ac0e658a000f6af523a4b05a9ee3735968b9348b9e52431801a92b5bc88", size = 21802 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a8/30/896163964dcccd358ebafd77bedbdd79fc844ab7ad2a664e6c4ba577457b/reach-4.1.1-py3-none-any.whl", hash = "sha256:473299ecc8afb114704cbf574c81365a9292f3c619487fafd1b3b5f4b5fbcd4b", size = 15588 },
 ]
 
 [[package]]

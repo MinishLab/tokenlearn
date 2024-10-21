@@ -46,14 +46,14 @@ tasks = get_tasks(
         TaskType.CLUSTERING,
         TaskType.RERANKING,
         TaskType.SUMMARIZATION,
-        TaskType.RETRIEVAL,
+        # TaskType.RETRIEVAL,
     ]
 )
 # Define the CustomMTEB object with the specified tasks
 evaluation = CustomMTEB(tasks=tasks)
 
 # Load the model
-model_name = "potion_large_1024"
+model_name = "potionone"
 model = StaticModel.from_pretrained(model_name)
 dim = model.dim
 
@@ -61,7 +61,7 @@ dim = model.dim
 # This code block will reweight the model's embeddings based on the
 # counts of the words in the training data.
 # And then applies PCA.
-"""paths = sorted(Path("data/c4_old").glob("*.json"))
+paths = sorted(Path("data/c4_old").glob("*.json"))
 paths.extend(sorted(Path("data/fineweb").glob("*.json")))
 
 txt, _ = collect_means_and_texts(paths)
@@ -92,7 +92,7 @@ w *= f[:, None]
 model.embedding_bag.weight = torch.nn.Parameter(torch.from_numpy(w), requires_grad=False)
 model.embedding.weight = torch.nn.Parameter(torch.from_numpy(w), requires_grad=False)
 
-model.normalize = True"""
+model.normalize = True
 
 # Optionally, add model metadata in MTEB format
 model.mteb_model_meta = ModelMeta(

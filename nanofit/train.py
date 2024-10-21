@@ -21,8 +21,8 @@ class StaticModelFineTuner(nn.Module):
         """Initialize from a model."""
         super().__init__()
         self.embeddings = nn.Embedding.from_pretrained(vectors.clone(), freeze=False, padding_idx=0)
-        self.n_classes = out_dim
-        self.out_layer = nn.Linear(vectors.shape[1], out_dim)
+        self.n_out = out_dim
+        self.out_layer = nn.Linear(vectors.shape[1], self.n_out)
         weights = torch.ones(len(vectors))
         weights[pad_id] = 0
         self.w = nn.Parameter(weights)
@@ -102,7 +102,9 @@ def train_supervised(
     val_dataloader = val_dataset.to_dataloader(shuffle=False, batch_size=batch_size)
 
     trainable_model = StaticModelFineTuner(
-        model.embedding.weight, out_dim=train_dataset.targets.shape[1], pad_id=model.tokenizer.token_to_id("[PAD]")
+        torch.from_numpy(model.embedding),
+        out_dim=train_dataset.targets.shape[1],
+        pad_id=model.tokenizer.token_to_id("[PAD]"),
     )
     trainable_model.to(device)
     optimizer = torch.optim.Adam(trainable_model.parameters(), lr=lr)
@@ -124,7 +126,7 @@ def train_supervised(
             for x, y in barred_train:
                 # Backward pass of the model and optimizer step.
                 optimizer.zero_grad()
-                x = x.to(model.device)
+                x = x.to(trainable_model.device)
                 y_hat, emb = trainable_model(x)
                 loss: torch.FloatTensor = 1 - criterion(y_hat, y.to(trainable_model.device)).mean()
                 loss = loss + (emb**2).mean()
@@ -144,7 +146,7 @@ def train_supervised(
                 loss_avg = 0.0
                 n = 0
                 for x, y in val_dataloader:
-                    x = x.to(model.device)
+                    x = x.to(trainable_model.device)
                     y_hat, emb = trainable_model(x)
                     loss = 1 - criterion(y_hat, y.to(trainable_model.device)).mean()
                     loss = loss + (emb**2).mean()
