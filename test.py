@@ -3,7 +3,6 @@ from collections import Counter
 from pathlib import Path
 
 import numpy as np
-import torch
 from evaluation import CustomMTEB, TaskType, get_tasks, make_leaderboard, parse_mteb_results, summarize_results
 from evaluation.classification_benchmark import ClassificationBenchmark
 from model2vec import StaticModel
@@ -76,8 +75,7 @@ x = np.full(len(model.embedding.weight), 1 / sum_id)
 for word_id, count in counts.items():
     x[word_id] = (count + 1) / sum_id
 
-w = model.embedding_bag.weight.detach().numpy()
-
+w = model.embedding
 w = np.nan_to_num(w)
 
 dim = 256
@@ -89,8 +87,7 @@ w = p.fit_transform(w)
 alpha = 1e-3
 f = alpha / (alpha + x)
 w *= f[:, None]
-model.embedding_bag.weight = torch.nn.Parameter(torch.from_numpy(w), requires_grad=False)
-model.embedding.weight = torch.nn.Parameter(torch.from_numpy(w), requires_grad=False)
+model.embedding = w
 
 model.normalize = True
 
