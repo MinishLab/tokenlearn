@@ -1498,7 +1498,7 @@ requires-dist = [
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-coverage", marker = "extra == 'dev'" },
-    { name = "reach" },
+    { name = "reach", git = "https://github.com/stephantul/reach?rev=main" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "sentence-transformers" },
     { name = "torch" },
@@ -2339,15 +2339,11 @@ wheels = [
 
 [[package]]
 name = "reach"
-version = "4.1.1"
-source = { registry = "https://pypi.org/simple" }
+version = "5.0.0"
+source = { git = "https://github.com/stephantul/reach?rev=main#5c0c810b91d162381575f0cb9301dbbfda0b4803" }
 dependencies = [
     { name = "numpy" },
     { name = "tqdm" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/2b/d3/be84f08baff840bed2f9f04287f741d026860fba81b664e6dea521a6780a/reach-4.1.1.tar.gz", hash = "sha256:86e48ac0e658a000f6af523a4b05a9ee3735968b9348b9e52431801a92b5bc88", size = 21802 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a8/30/896163964dcccd358ebafd77bedbdd79fc844ab7ad2a664e6c4ba577457b/reach-4.1.1-py3-none-any.whl", hash = "sha256:473299ecc8afb114704cbf574c81365a9292f3c619487fafd1b3b5f4b5fbcd4b", size = 15588 },
 ]
 
 [[package]]
@@ -3045,7 +3041,7 @@ name = "triton"
 version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "filelock" },
+    { name = "filelock", marker = "python_full_version < '3.13'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/45/27/14cc3101409b9b4b9241d2ba7deaa93535a217a211c86c4cc7151fb12181/triton-3.0.0-1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:e1efef76935b2febc365bfadf74bcb65a6f959a9872e5bddf44cc9e0adce1e1a", size = 209376304 },

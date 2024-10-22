@@ -165,3 +165,4 @@ local/
 results/
 local_models/
 data/
+lightning_logs/

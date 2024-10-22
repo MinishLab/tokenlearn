@@ -11,7 +11,7 @@ dependencies = [
     "torch",
     "datasets",
     "more-itertools>=10.5.0",
-    "reach",
+    "reach@git+https://github.com/stephantul/reach@main",
     "evaluation@git+https://github.com/MinishLab/evaluation@main"
 ]
 

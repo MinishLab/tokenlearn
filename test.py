@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from collections import Counter
 from pathlib import Path
@@ -52,7 +54,7 @@ tasks = get_tasks(
 evaluation = CustomMTEB(tasks=tasks)
 
 # Load the model
-model_name = "potionone"
+model_name = "potion_bge_base_768_new"
 model = StaticModel.from_pretrained(model_name)
 dim = model.dim
 
@@ -70,7 +72,7 @@ for t in tqdm(txt):
     counts.update(model.tokenizer.encode(t, add_special_tokens=False).ids)
 
 sum_id = sum(counts.values()) + len(model.tokens)
-x = np.full(len(model.embedding.weight), 1 / sum_id)
+x = np.full(len(model.embedding), 1 / sum_id)
 
 for word_id, count in counts.items():
     x[word_id] = (count + 1) / sum_id
@@ -82,18 +84,14 @@ dim = 256
 p = PCA(n_components=dim)
 w = p.fit_transform(w)
 
-# w /= np.linalg.norm(w, axis=1)[:, None]
-
-alpha = 1e-3
-f = alpha / (alpha + x)
-w *= f[:, None]
 model.embedding = w
 
-model.normalize = True
+suffix = f"_reweight+pca_{dim}+fineweb_counts_NORMalized_ccc"
+full_model_name = model_name + suffix
 
 # Optionally, add model metadata in MTEB format
 model.mteb_model_meta = ModelMeta(
-    name=model_name + f"_reweight+pca_{dim}+fineweb_counts_NORMalized",
+    name=full_model_name,
     revision="no_revision_available",
     release_date=None,
     languages=None,
@@ -109,5 +107,5 @@ task_scores = summarize_results(parsed_results)
 # Print the results in a leaderboard format
 leaderboard = make_leaderboard(task_scores)
 
-c = ClassificationBenchmark(model, f"results/{model_name}")
-c.run()
+clf = ClassificationBenchmark(model, f"results/{full_model_name}")
+clf.run()
