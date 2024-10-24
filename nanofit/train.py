@@ -178,8 +178,6 @@ def train_supervised(
     trainable_model.load_state_dict(param_dict)
 
     with torch.no_grad():
-        # indices = torch.tensor(list(range(len(trainable_model.embeddings.weight))))
-        # offsets = torch.tensor(list(range(0, len(indices))))
         vectors = (
             trainable_model.sub_forward(torch.arange(len(trainable_model.embeddings.weight))[:, None]).cpu().numpy()
         )
