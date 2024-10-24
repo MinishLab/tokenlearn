@@ -41,7 +41,7 @@ def collect_means_and_texts(paths: list[Path]) -> tuple[list[str], np.ndarray]:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    s = distill("baai/bge-base-en-v1.5", pca_dims=None, apply_zipf=False)
+    s = distill("baai/bge-base-en-v1.5", pca_dims="auto", apply_zipf=False)
     v = np.random.randn(*s.embedding.shape)  # noqa
     v = _post_process_embeddings(v, "auto", False).astype(np.float32)
 
