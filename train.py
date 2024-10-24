@@ -28,8 +28,12 @@ def collect_means_and_texts(paths: list[Path]) -> tuple[list[str], np.ndarray]:
             items = json.load(open(path))["items"]
             vectors = np.load(open(vectors_path, "rb"))
             r = Reach(vectors, items)
-        txts.extend(r.sorted_items)
-        v.append(r.vectors)
+        # Filter out any NaN vectors before appending
+        non_nan_indices = ~np.isnan(r.vectors).any(axis=1)
+        valid_vectors = r.vectors[non_nan_indices]
+        valid_items = np.array(r.sorted_items)[non_nan_indices]
+        txts.extend(valid_items)
+        v.append(valid_vectors)
 
     return txts, np.concatenate(v)
 
