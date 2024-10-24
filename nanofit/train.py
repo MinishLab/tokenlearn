@@ -183,7 +183,6 @@ def train_supervised(
         vectors = (
             trainable_model.sub_forward(torch.arange(len(trainable_model.embeddings.weight))[:, None]).cpu().numpy()
         )
-        # vectors = trainable_model.embeddings.weight.cpu().numpy()
 
     new_model = StaticModel(vectors=vectors, tokenizer=model.tokenizer, config=model.config)
 
