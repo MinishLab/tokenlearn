@@ -64,7 +64,7 @@ def main(args: Any) -> None:
     val_data = TextDataset(val_txt, torch.from_numpy(val_vec), s.tokenizer)
 
     # Train the model
-    model, _ = train_supervised(train_data, val_data, s, device=args.device)
+    model, _ = train_supervised(train_data, val_data, s, device=args.device, min_epochs=50)
     # Save the trained model
     model.save_pretrained(args.save_path)
 

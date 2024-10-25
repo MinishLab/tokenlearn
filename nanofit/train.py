@@ -4,6 +4,7 @@ import logging
 
 import numpy as np
 import torch
+from evaluation import CustomMTEB, get_tasks, parse_mteb_results, summarize_results
 from model2vec import StaticModel
 from tokenizers import Tokenizer
 from torch import nn
@@ -11,6 +12,9 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
+# Get tasks and run evaluation
+tasks = get_tasks(["STS"])  # Only STS tasks for evaluation
+evaluation = CustomMTEB(tasks=tasks)
 logger = logging.getLogger(__name__)
 
 _MIN_DELTA = 0.001
@@ -117,6 +121,7 @@ def train_supervised(  # noqa: C901
     batch_size: int = 256,
     project_name: str = "minishlab",
     config: dict | None = None,
+    eval_interval: int = 5,  # New parameter for evaluation interval
 ) -> StaticModel:
     """Train a supervised classifier using cross-entropy loss and track metrics with W&B if available."""
     if config is None:
@@ -197,6 +202,34 @@ def train_supervised(  # noqa: C901
                         "val_loss": avg_val_loss,  # Log validation loss in the same step
                     }
                 )
+
+            # Run evaluation every 'eval_interval' epochs
+            if (epoch + 1) % eval_interval == 0:
+                logger.info(f"Running evaluation at epoch {epoch + 1}")
+                # Update the embeddings of the StaticModel with the latest weights of trainable_model
+                with torch.no_grad():
+                    embeddings_weight = trainable_model.embeddings.weight.to(device)
+                    updated_vectors = (
+                        trainable_model.sub_forward(torch.arange(len(embeddings_weight))[:, None].to(device))
+                        .cpu()
+                        .numpy()
+                    )
+
+                # Create an updated StaticModel with the latest vectors from trainable_model
+                updated_model = StaticModel(vectors=updated_vectors, tokenizer=model.tokenizer, config=model.config)
+
+                # Run evaluation
+                results = evaluation.run(
+                    updated_model, eval_splits=["test"], output_folder=f"results", overwrite_results=True
+                )
+                # Parse the results and summarize them
+                parsed_results = parse_mteb_results(mteb_results=results, model_name="no_model_name_available")
+                task_scores = summarize_results(parsed_results)
+                sts_score = task_scores["no_model_name_available"]["task_means"]["STS"]
+
+                # Log the evaluation results to W&B under the key 'STS_score'
+                if wandb_installed and sts_score is not None:
+                    wandb.log({f"STS_score": sts_score})
 
             # Early stopping logic
             if patience is not None and curr_patience is not None and epoch >= min_epochs:
