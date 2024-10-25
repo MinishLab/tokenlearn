@@ -74,21 +74,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train StaticModel with distillation and dataset paths.")
 
     parser.add_argument(
-        "--model_name",
+        "--model-name",
         type=str,
         default="baai/bge-base-en-v1.5",
         help="The model name for distillation (e.g., 'baai/bge-base-en-v1.5').",
     )
     parser.add_argument(
-        "--data_path", type=str, default="data/fineweb_bgebase", help="Path to the directory containing the dataset."
+        "--data-path", type=str, default="data/fineweb_bgebase", help="Path to the directory containing the dataset."
     )
-    parser.add_argument("--save_path", type=str, help="Path to save the trained model.")
+    parser.add_argument("--save-path", type=str, help="Path to save the trained model.")
 
     parser.add_argument(
         "--device", type=str, default="cpu", help="Device to run the training on (e.g., 'cpu', 'cuda')."
     )
     parser.add_argument(
-        "--random_embeddings", action="store_true", help="Use random embeddings instead of distilling the model."
+        "--random-embeddings", action="store_true", help="Use random embeddings instead of distilling the model."
     )
 
     args = parser.parse_args()
