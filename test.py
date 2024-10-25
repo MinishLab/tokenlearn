@@ -84,7 +84,11 @@ dim = 256
 p = PCA(n_components=dim)
 w = p.fit_transform(w)
 
+alpha = 1e-3
+f = alpha / (alpha + x)
+w *= f[:, None]
 model.embedding = w
+model.normalize = True
 
 suffix = f"_reweight+pca_{dim}+fineweb_counts_NORMalized_ccc"
 full_model_name = model_name + suffix
