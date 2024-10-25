@@ -15,6 +15,24 @@ logger = logging.getLogger(__name__)
 
 _MIN_DELTA = 0.001
 
+# Try to import wandb, if not available, set a flag
+try:
+    import wandb
+
+    wandb_installed = True
+except ImportError:
+    logger.warning("wandb is not installed. Skipping wandb logging.")
+    wandb_installed = False
+
+
+def init_wandb(project_name: str = "minishlab", config: dict | None = None) -> None:
+    """Initialize Weights & Biases for tracking experiments if wandb is installed."""
+    if wandb_installed:
+        wandb.init(project=project_name, config=config)
+        logger.info(f"W&B initialized with project: {project_name}")
+    else:
+        logger.info("Skipping W&B initialization since wandb is not installed.")
+
 
 class StaticModelFineTuner(nn.Module):
     def __init__(self, vectors: torch.Tensor, out_dim: int, pad_id: int) -> None:
@@ -87,17 +105,33 @@ class TextDataset(Dataset):
         return DataLoader(self, collate_fn=self.collate_fn, shuffle=shuffle, batch_size=batch_size)
 
 
-def train_supervised(
+def train_supervised(  # noqa: C901
     train_dataset: TextDataset,
     val_dataset: TextDataset,
     model: StaticModel,
-    max_epochs: int = 100,
+    max_epochs: int = 200,
+    min_epochs: int = 5,
     lr: float = 1e-3,
     patience: int | None = 3,
     device: str = "cpu",
     batch_size: int = 256,
+    project_name: str = "minishlab",
+    config: dict | None = None,
 ) -> StaticModel:
-    """Train a supervised classifier using cross entropy."""
+    """Train a supervised classifier using cross-entropy loss and track metrics with W&B if available."""
+    if config is None:
+        config = {
+            "learning_rate": lr,
+            "batch_size": batch_size,
+            "max_epochs": max_epochs,
+            "min_epochs": min_epochs,
+            "patience": patience,
+        }
+
+    # Initialize W&B only if wandb is installed
+    if wandb_installed:
+        init_wandb(project_name=project_name, config=config)
+
     train_dataloader = train_dataset.to_dataloader(shuffle=True, batch_size=batch_size)
     val_dataloader = val_dataset.to_dataloader(shuffle=False, batch_size=batch_size)
 
@@ -111,7 +145,6 @@ def train_supervised(
     criterion = nn.CosineSimilarity()
 
     lowest_loss = float("inf")
-
     param_dict = trainable_model.state_dict()
     curr_patience = patience
 
@@ -119,68 +152,82 @@ def train_supervised(
         for epoch in range(max_epochs):
             logger.info(f"Epoch {epoch}")
             trainable_model.train()
-            barred_train = tqdm(train_dataloader, desc="{:03d}".format(epoch))
-            loss_avg = 0.0
-            n = 0
-            losses = []
+
+            # Track train loss separately
+            train_losses = []
+            barred_train = tqdm(train_dataloader, desc=f"Epoch {epoch:03d} [Train]")
+
             for x, y in barred_train:
-                # Backward pass of the model and optimizer step.
                 optimizer.zero_grad()
                 x = x.to(trainable_model.device)
                 y_hat, emb = trainable_model(x)
-                loss: torch.FloatTensor = 1 - criterion(y_hat, y.to(trainable_model.device)).mean()
-                loss = loss + (emb**2).mean()
-                loss.backward()
+                train_loss = 1 - criterion(y_hat, y.to(trainable_model.device)).mean()
+                train_loss = train_loss + (emb**2).mean()
+                train_loss.backward()
                 optimizer.step()
-                loss_avg += loss.item()
-                n += 1
 
-                losses.append(loss.item())
-                losses = losses[-10:]
+                train_losses.append(train_loss.item())
+                barred_train.set_description_str(f"Train Loss: {np.mean(train_losses):.3f}")
 
-                barred_train.set_description_str(f"Loss: {np.mean(losses):.3f}")
+            # Calculate average train loss
+            avg_train_loss = np.mean(train_losses)
 
+            # Validation phase
             trainable_model.eval()
-
+            val_losses = []
             with torch.no_grad():
-                loss_avg = 0.0
-                n = 0
-                for x, y in val_dataloader:
+                barred_val = tqdm(val_dataloader, desc=f"Epoch {epoch:03d} [Val]")
+                for x, y in barred_val:
                     x = x.to(trainable_model.device)
                     y_hat, emb = trainable_model(x)
-                    loss = 1 - criterion(y_hat, y.to(trainable_model.device)).mean()
-                    loss = loss + (emb**2).mean()
-                    loss_avg += loss.item()
-                    n += 1
+                    val_loss = 1 - criterion(y_hat, y.to(trainable_model.device)).mean()
+                    val_loss = val_loss + (emb**2).mean()
+                    val_losses.append(val_loss.item())
+                    barred_val.set_description_str(f"Val Loss: {np.mean(val_losses):.3f}")
 
-                loss_avg /= n
+            # Calculate average validation loss
+            avg_val_loss = np.mean(val_losses)
 
-                if patience is not None and curr_patience is not None:
-                    if (lowest_loss - loss_avg) > _MIN_DELTA:
-                        param_dict = trainable_model.state_dict()
-                        curr_patience = patience
-                        lowest_loss = loss_avg
-                    else:
-                        curr_patience -= 1
-                        if curr_patience == 0:
-                            break
-                    patience_str = "🌝" * curr_patience
-                    logger.info(f"Patience level: {patience_str}")
-                    logger.info(f"Lowest loss: {lowest_loss:.3f}")
+            # Log both training and validation loss together, only if wandb is installed
+            if wandb_installed:
+                wandb.log(
+                    {
+                        "epoch": epoch,
+                        "train_loss": avg_train_loss,
+                        "val_loss": avg_val_loss,  # Log validation loss in the same step
+                    }
+                )
 
-                logger.info(f"Validation loss: {loss_avg:.3f}")
+            # Early stopping logic
+            if patience is not None and curr_patience is not None and epoch >= min_epochs:
+                if (lowest_loss - avg_val_loss) > _MIN_DELTA:
+                    param_dict = trainable_model.state_dict()
+                    curr_patience = patience
+                    lowest_loss = avg_val_loss
+                else:
+                    curr_patience -= 1
+                    if curr_patience == 0:
+                        break
+                patience_str = "🌝" * curr_patience
+                logger.info(f"Patience level: {patience_str}")
+                logger.info(f"Lowest loss: {lowest_loss:.3f}")
 
+            logger.info(f"Validation loss: {avg_val_loss:.3f}")
             trainable_model.train()
+
     except KeyboardInterrupt:
-        logger.info("Interruptor")
+        logger.info("Training interrupted")
+
     trainable_model.eval()
     # Load best model
     trainable_model.load_state_dict(param_dict)
 
+    # Move the embeddings to the device (GPU)
+    embeddings_weight = trainable_model.embeddings.weight.to(device)
+
+    # Perform the forward pass on GPU
     with torch.no_grad():
-        vectors = (
-            trainable_model.sub_forward(torch.arange(len(trainable_model.embeddings.weight))[:, None]).cpu().numpy()
-        )
+        vectors = trainable_model.sub_forward(torch.arange(len(embeddings_weight))[:, None].to(device)).cpu().numpy()
 
     new_model = StaticModel(vectors=vectors, tokenizer=model.tokenizer, config=model.config)
 
