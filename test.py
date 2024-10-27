@@ -62,8 +62,7 @@ dim = model.dim
 # This code block will reweight the model's embeddings based on the
 # counts of the words in the training data.
 # And then applies PCA.
-paths = sorted(Path("data/c4_old").glob("*.json"))
-paths.extend(sorted(Path("data/fineweb").glob("*.json")))
+paths = sorted(Path("data/fineweb_bgebase").glob("*.json"))
 
 txt, _ = collect_means_and_texts(paths)
 

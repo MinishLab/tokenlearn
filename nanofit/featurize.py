@@ -9,6 +9,7 @@ from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
 _SAVE_INTERVAL = 10
+_MAX_MEANS = 400_000
 
 
 def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str) -> list[tuple[str, np.ndarray]]:
@@ -22,13 +23,14 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
     txts = []
     means = []
     seen = set()
+    total_means = 0
 
     for index, batch in enumerate(tqdm(batched(texts, 32))):
         i = index // _SAVE_INTERVAL
         if (out_path / f"featurized_{i}.json").exists():
             continue
         # Consume the generator
-        list_batch = [x for x in [x.strip() for x in batch] if x]
+        list_batch = [x["text"].strip() for x in batch if x.get("text")]
 
         # Already truncated to model max_length
         tokenized_ids = model.tokenize(list_batch)["input_ids"]
@@ -45,6 +47,13 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
             mean = np.mean(token_embedding[1:-1], axis=0)
             txts.append(text)
             means.append(mean)
+            total_means += 1
+
+            if total_means >= _MAX_MEANS:
+                # Save the final batch and stop
+                r = Reach(means, txts)
+                r.save(out_path / f"featurized_{(index // _SAVE_INTERVAL)}.json")
+                return means
 
         if index > 0 and (index + 1) % _SAVE_INTERVAL == 0:
             r = Reach(means, txts)
@@ -63,6 +72,5 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
 if __name__ == "__main__":
     model = SentenceTransformer("baai/bge-base-en-v1.5")
 
-    # use name="sample-10BT" to use the 10BT sample
     fw = load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-10", split="train", streaming=True)
-    means = featurize(fw, model, "data/fineweb")
+    means = featurize(fw, model, "data/c4_bgebase")
