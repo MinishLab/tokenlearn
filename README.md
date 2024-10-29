@@ -1,6 +1,7 @@
 # Tokenlearn
 Tokenlearn is a method to pre-train [Model2Vec](https://github.com/MinishLab/model2vec).
 
+It works by creating training data
 ## Usage
 
 ### Featurizing
@@ -22,6 +23,8 @@ python train.py --data-path <path-to-your-data> -save-path <path-to-save-model>
 Training will create two models:
 - The base trained model.
 - The base model with weighting applied. This is the model that should be used for downstream tasks.
+
+NOTE: the code assumes that the padding token ID in your tokenizer is 0. If this is not the case, you will need to modify the code.
 
 ### Evaluating
 

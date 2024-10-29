@@ -17,15 +17,14 @@ logger = logging.getLogger(__name__)
 try:
     import wandb
 
-    wandb_installed = True
+    __WANDB_INSTALLED = True
 except ImportError:
-    logger.warning("wandb is not installed. Skipping wandb logging.")
-    wandb_installed = False
+    _WANDB_INSTALLED = False
 
 
 def init_wandb(project_name: str, config: dict | None = None) -> None:
     """Initialize Weights & Biases for tracking experiments if wandb is installed."""
-    if wandb_installed:
+    if _WANDB_INSTALLED:
         wandb.init(project=project_name, config=config)
         logger.info(f"W&B initialized with project: {project_name}")
     else:
@@ -42,7 +41,8 @@ class StaticModelFineTuner(nn.Module):
         :param pad_id: The padding id.
         """
         super().__init__()
-        self.embeddings = nn.Embedding.from_pretrained(vectors.clone(), freeze=False, padding_idx=0)
+        self.pad_id = pad_id
+        self.embeddings = nn.Embedding.from_pretrained(vectors.clone(), freeze=False, padding_idx=pad_id)
         self.n_out = out_dim
         self.out_layer = nn.Linear(vectors.shape[1], self.n_out)
         weights = torch.ones(len(vectors))
@@ -52,7 +52,7 @@ class StaticModelFineTuner(nn.Module):
     def sub_forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the mean."""
         w = self.w[x]
-        zeros = (x != 0).float()
+        zeros = (x != self.pad_id).float()
         length = zeros.sum(1)
         embedded = self.embeddings(x)
         # Simulate actual mean
@@ -172,7 +172,7 @@ def train_supervised(  # noqa: C901
         }
 
     # Initialize W&B only if wandb is installed and project name is provided
-    if wandb_installed and project_name:
+    if _WANDB_INSTALLED and project_name:
         init_wandb(project_name=project_name, config=config)
 
     train_dataloader = train_dataset.to_dataloader(shuffle=True, batch_size=batch_size)
@@ -254,7 +254,7 @@ def train_supervised(  # noqa: C901
             current_lr_linear = optimizer.param_groups[1]["lr"]
 
             # Log training loss and learning rates to wandb
-            if wandb_installed:
+            if _WANDB_INSTALLED:
                 wandb.log(
                     {
                         "epoch": epoch,
