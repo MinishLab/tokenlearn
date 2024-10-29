@@ -7,13 +7,11 @@ from typing import Any
 
 import numpy as np
 import torch
-from evaluation import CustomMTEB, TaskType, get_tasks, make_leaderboard, parse_mteb_results, summarize_results
 from model2vec import StaticModel
 from model2vec.distill import distill
 from model2vec.distill.distillation import _post_process_embeddings
 from reach import Reach
 from sklearn.decomposition import PCA
-from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 from nanofit.train import TextDataset, train_supervised
