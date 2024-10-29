@@ -132,8 +132,8 @@ def train_supervised(  # noqa: C901
     lr_scheduler_min_delta: float = 0.03,
     cosine_weight: float = 1.0,
     mse_weight: float = 1.0,
-    lr_model: float = 0.005,
-    lr_linear: float = 0.05,
+    lr_model: float = 0.003,
+    lr_linear: float = 0.01,
 ) -> StaticModel:
     """
     Train a tokenlearn model.
