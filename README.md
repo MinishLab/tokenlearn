@@ -18,7 +18,7 @@ This will create means for [C4](https://huggingface.co/datasets/allenai/c4) usin
 The easiest way to train using Tokenlearn is to use the CLI. You can use the following command to train a model:
 
 ```bash
-python train.py --data-path <path-to-your-data> -save-path <path-to-save-model>
+python train.py --data-path <path-to-your-data> --save-path <path-to-save-model>
 ```
 
 Training will create two models:
