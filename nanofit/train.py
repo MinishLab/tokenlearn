@@ -112,7 +112,7 @@ def train_supervised(  # noqa: C901
     patience: int | None = 5,
     device: str = "cpu",
     batch_size: int = 256,
-    project_name: str = "minishlab",
+    project_name: str | None = None,
     config: dict | None = None,
     save_dir: str = "saved_models",
     lr_scheduler_patience: int = 3,
@@ -122,7 +122,27 @@ def train_supervised(  # noqa: C901
     lr_model: float = 0.005,
     lr_linear: float = 0.05,
 ) -> StaticModel:
-    """Train a supervised classifier with separate losses and learning rates, and track metrics with W&B if available."""
+    """
+    Train a tokenlearn model.
+
+    :param train_dataset: The training dataset.
+    :param model: The model to train.
+    :param max_epochs: The maximum number of epochs to train.
+    :param min_epochs: The minimum number of epochs to train.
+    :param patience: The number of epochs to wait before early stopping.
+    :param device: The device to train on.
+    :param batch_size: The batch size.
+    :param project_name: The name of the project for W&B.
+    :param config: The configuration for W&B.
+    :param save_dir: The directory to save the model.
+    :param lr_scheduler_patience: The patience for the learning rate scheduler.
+    :param lr_scheduler_min_delta: The minimum delta for the learning rate scheduler.
+    :param cosine_weight: The weight for the cosine loss.
+    :param mse_weight: The weight for the MSE loss.
+    :param lr_model: The learning rate for the model.
+    :param lr_linear: The learning rate for the linear layer.
+    :return: The trained model.
+    """
     if config is None:
         config = {
             "batch_size": batch_size,
@@ -137,12 +157,13 @@ def train_supervised(  # noqa: C901
             "lr_linear": lr_linear,
         }
 
-    # Initialize W&B only if wandb is installed
-    if wandb_installed:
+    # Initialize W&B only if wandb is installed and project name is provided
+    if wandb_installed and project_name:
         init_wandb(project_name=project_name, config=config)
 
     train_dataloader = train_dataset.to_dataloader(shuffle=True, batch_size=batch_size)
 
+    # Initialize the model
     trainable_model = StaticModelFineTuner(
         torch.from_numpy(model.embedding),
         out_dim=train_dataset.targets.shape[1],
@@ -159,7 +180,7 @@ def train_supervised(  # noqa: C901
 
     criterion = nn.CosineSimilarity()
 
-    # Initialize the learning rate scheduler with min_delta (threshold)
+    # Initialize the learning rate scheduler
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode="min",
@@ -172,7 +193,7 @@ def train_supervised(  # noqa: C901
     )
 
     lowest_loss = float("inf")
-    param_dict = trainable_model.state_dict()  # To store the best model state
+    param_dict = trainable_model.state_dict()
     curr_patience = patience
 
     try:
@@ -198,7 +219,6 @@ def train_supervised(  # noqa: C901
                 total_loss = cosine_weight * cosine_loss + mse_weight * mse_loss
                 total_loss.backward()
 
-                # torch.nn.utils.clip_grad_norm_(trainable_model.parameters(), max_norm=1.0)
                 optimizer.step()
 
                 train_losses.append(total_loss.item())
@@ -219,7 +239,7 @@ def train_supervised(  # noqa: C901
             current_lr_model = optimizer.param_groups[0]["lr"]
             current_lr_linear = optimizer.param_groups[1]["lr"]
 
-            # Log training loss and learning rates to W&B, only if wandb is installed
+            # Log training loss and learning rates to wandb
             if wandb_installed:
                 wandb.log(
                     {

@@ -9,11 +9,18 @@ from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
 _SAVE_INTERVAL = 10
-_MAX_MEANS = 400_000
+_MAX_MEANS = 1100000
 
 
-def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str) -> list[tuple[str, np.ndarray]]:
-    """Featurize text using a sentence transformer."""
+def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str) -> None:
+    """
+    Featurize text using a sentence transformer.
+
+    :param texts: Iterable of texts to featurize.
+    :param model: SentenceTransformer model to use.
+    :param output_dir: Directory to save the featurized texts.
+    :raises ValueError: If the model does not have a fixed dimension.
+    """
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
     model_dim = model.get_sentence_embedding_dimension()
@@ -53,7 +60,7 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
                 # Save the final batch and stop
                 r = Reach(means, txts)
                 r.save(out_path / f"featurized_{(index // _SAVE_INTERVAL)}.json")
-                return means
+                return
 
         if index > 0 and (index + 1) % _SAVE_INTERVAL == 0:
             r = Reach(means, txts)
@@ -66,11 +73,8 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
             r = Reach(means, txts)
             r.save(out_path / f"featurized_{(index // _SAVE_INTERVAL)}.json")
 
-    return means
-
 
 if __name__ == "__main__":
     model = SentenceTransformer("baai/bge-base-en-v1.5")
-
-    fw = load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-10", split="train", streaming=True)
-    means = featurize(fw, model, "data/c4_bgebase")
+    fw = load_dataset("allenai/c4", name="en", split="train", streaming=True)
+    featurize(fw, model, "data/c4_bgebase")
