@@ -12,7 +12,6 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
-_MIN_DELTA = 0.001
 
 # Try to import wandb for logging
 try:
@@ -24,7 +23,7 @@ except ImportError:
     wandb_installed = False
 
 
-def init_wandb(project_name: str = "minishlab", config: dict | None = None) -> None:
+def init_wandb(project_name: str, config: dict | None = None) -> None:
     """Initialize Weights & Biases for tracking experiments if wandb is installed."""
     if wandb_installed:
         wandb.init(project=project_name, config=config)
@@ -35,7 +34,13 @@ def init_wandb(project_name: str = "minishlab", config: dict | None = None) -> N
 
 class StaticModelFineTuner(nn.Module):
     def __init__(self, vectors: torch.Tensor, out_dim: int, pad_id: int) -> None:
-        """Initialize from a model."""
+        """
+        Initialize from a model.
+
+        :param vectors: The vectors to use.
+        :param out_dim: The output dimension.
+        :param pad_id: The padding id.
+        """
         super().__init__()
         self.embeddings = nn.Embedding.from_pretrained(vectors.clone(), freeze=False, padding_idx=0)
         self.n_out = out_dim
@@ -71,7 +76,14 @@ class StaticModelFineTuner(nn.Module):
 
 class TextDataset(Dataset):
     def __init__(self, texts: list[str], targets: torch.Tensor, tokenizer: Tokenizer) -> None:
-        """Initialize the dataset."""
+        """
+        Initialize the dataset.
+
+        :param texts: The texts to tokenize.
+        :param targets: The targets.
+        :param tokenizer: The tokenizer to use.
+        :raises ValueError: If the number of labels does not match the number of texts.
+        """
         if len(targets) != len(texts):
             raise ValueError("Number of labels does not match number of texts.")
         self.texts = texts
@@ -86,7 +98,7 @@ class TextDataset(Dataset):
         return len(self.tokenized_texts)
 
     def __getitem__(self, index: int) -> tuple[list[int], torch.Tensor]:
-        """Gets an item :)))))."""
+        """Gets an item."""
         return self.tokenized_texts[index], self.targets[index]
 
     @staticmethod
@@ -110,6 +122,7 @@ def train_supervised(  # noqa: C901
     max_epochs: int = 50,
     min_epochs: int = 1,
     patience: int | None = 5,
+    patience_min_delta: float = 0.001,
     device: str = "cpu",
     batch_size: int = 256,
     project_name: str | None = None,
@@ -130,6 +143,7 @@ def train_supervised(  # noqa: C901
     :param max_epochs: The maximum number of epochs to train.
     :param min_epochs: The minimum number of epochs to train.
     :param patience: The number of epochs to wait before early stopping.
+    :param patience_min_delta: The minimum delta for early stopping.
     :param device: The device to train on.
     :param batch_size: The batch size.
     :param project_name: The name of the project for W&B.
@@ -254,7 +268,7 @@ def train_supervised(  # noqa: C901
 
             # Early stopping logic based on training loss
             if patience is not None and curr_patience is not None and epoch >= min_epochs:
-                if (lowest_loss - avg_train_loss) > _MIN_DELTA:
+                if (lowest_loss - avg_train_loss) > patience_min_delta:
                     param_dict = trainable_model.state_dict()  # Save best model state based on training loss
                     curr_patience = patience
                     lowest_loss = avg_train_loss
