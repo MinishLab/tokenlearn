@@ -1,7 +1,8 @@
 # Tokenlearn
 Tokenlearn is a method to pre-train [Model2Vec](https://github.com/MinishLab/model2vec).
 
-It works by creating training data
+The method is described in detail in our [Tokenlearn blogpost](https://minishlab.github.io/tokenlearn_blogpost/).
+
 ## Usage
 
 ### Featurizing
