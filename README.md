@@ -7,7 +7,7 @@ Tokenlearn is a method to pre-train [Model2Vec](https://github.com/MinishLab/mod
 Tokenlearn is trained using means from a sentence transformer. To create means, the `featurize` script can be used:
 
 ```bash
-python -m tokenlearn/featurize
+python tokenlearn/featurize.py
 ```
 
 This will create means for [C4](https://huggingface.co/datasets/allenai/c4) using [bge-base-en-v1.5](https://huggingface.co/BAAI/bge-base-en-v1.5).
@@ -16,7 +16,7 @@ This will create means for [C4](https://huggingface.co/datasets/allenai/c4) usin
 The easiest way to train using Tokenlearn is to use the CLI. You can use the following command to train a model:
 
 ```bash
-python -m tokenlearn train --data-path <path-to-your-data> -save-path <path-to-save-model>
+python train.py --data-path <path-to-your-data> -save-path <path-to-save-model>
 ```
 
 Training will create two models:

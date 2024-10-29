@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 from typing import Iterable
 
@@ -75,6 +76,14 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
 
 
 if __name__ == "__main__":
-    model = SentenceTransformer("baai/bge-base-en-v1.5")
-    fw = load_dataset("allenai/c4", name="en", split="train", streaming=True)
-    featurize(fw, model, "data/c4_bgebase")
+    parser = argparse.ArgumentParser(description="Train a Model2Vec using tokenlearn.")
+    parser.add_argument(
+        "--model-name",
+        type=str,
+        default="baai/bge-base-en-v1.5",
+        help="The model name for distillation (e.g., 'baai/bge-base-en-v1.5').",
+    )
+    args = parser.parse_args()
+    model = SentenceTransformer(args.model_name)
+    dataset = load_dataset("allenai/c4", name="en", split="train", streaming=True)
+    featurize(dataset, model, "data/c4_bgebase")
