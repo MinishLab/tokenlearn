@@ -1,6 +1,6 @@
 [project]
-name = "nanofit"
-description = "Fit nano models"
+name = "tokenlearn"
+description = "Pre-train static embedders."
 readme = "README.md"
 version = "0.1.0"
 requires-python = ">=3.10"
@@ -73,7 +73,7 @@ warn_unused_configs = true
 ignore_missing_imports = true
 
 [tool.setuptools]
-packages = ["nanofit"]
+packages = ["tokenlearn"]
 
 [tool.setuptools_scm]
 # can be empty if no extra settings are needed, presence enables setuptools_scm

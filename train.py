@@ -14,7 +14,7 @@ from reach import Reach
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 
-from nanofit.train import TextDataset, train_supervised
+from tokenlearn.train import TextDataset, train_supervised
 
 logging.basicConfig(level=logging.INFO)
 

@@ -1,5 +1,5 @@
 # Tokenlearn
-Tokenlearn is a method to pre-train [Model2Vec](https://github.com/MinishLab/model2vec)
+Tokenlearn is a method to pre-train [Model2Vec](https://github.com/MinishLab/model2vec).
 
 ## Usage
 
