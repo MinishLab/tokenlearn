@@ -48,7 +48,7 @@ def train_model(
     model_name: str, data_path: str, save_path: str, device: str = "cpu", random_embeddings: bool = False
 ) -> StaticModel:
     """
-    Train a tokenlearnn model.
+    Train a tokenlearn model.
 
     :param model_name: The sentence transformer model name for distillation.
     :param data_path: Path to the directory containing the dataset.
@@ -72,7 +72,7 @@ def train_model(
     train_data = TextDataset(train_txt, torch.from_numpy(train_vec), s.tokenizer)
 
     # Train the model
-    model, _ = train_supervised(train_data, s, device=device)
+    model, _ = train_supervised(train_dataset=train_data, model=s, device=device)
 
     # Save the trained model
     model.save_pretrained(save_path)

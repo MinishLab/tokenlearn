@@ -127,7 +127,6 @@ def train_supervised(  # noqa: C901
     batch_size: int = 256,
     project_name: str | None = None,
     config: dict | None = None,
-    save_dir: str = "saved_models",
     lr_scheduler_patience: int = 3,
     lr_scheduler_min_delta: float = 0.03,
     cosine_weight: float = 1.0,
@@ -148,7 +147,6 @@ def train_supervised(  # noqa: C901
     :param batch_size: The batch size.
     :param project_name: The name of the project for W&B.
     :param config: The configuration for W&B.
-    :param save_dir: The directory to save the model.
     :param lr_scheduler_patience: The patience for the learning rate scheduler.
     :param lr_scheduler_min_delta: The minimum delta for the learning rate scheduler.
     :param cosine_weight: The weight for the cosine loss.
@@ -303,8 +301,5 @@ def train_supervised(  # noqa: C901
         vectors = trainable_model.sub_forward(torch.arange(len(embeddings_weight))[:, None].to(device)).cpu().numpy()
 
     new_model = StaticModel(vectors=vectors, tokenizer=model.tokenizer, config=model.config)
-
-    # Save the best model based on training loss
-    new_model.save_pretrained(f"{save_dir}/best_model_train_loss_{lowest_loss:.4f}")
 
     return new_model, trainable_model
