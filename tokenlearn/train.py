@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 try:
     import wandb
 
-    __WANDB_INSTALLED = True
+    _WANDB_INSTALLED = True
 except ImportError:
     _WANDB_INSTALLED = False
 
@@ -174,6 +174,9 @@ def train_supervised(  # noqa: C901
     # Initialize W&B only if wandb is installed and project name is provided
     if _WANDB_INSTALLED and project_name:
         init_wandb(project_name=project_name, config=config)
+        wandb_initialized = True
+    else:
+        wandb_initialized = False
 
     train_dataloader = train_dataset.to_dataloader(shuffle=True, batch_size=batch_size)
 
@@ -254,7 +257,7 @@ def train_supervised(  # noqa: C901
             current_lr_linear = optimizer.param_groups[1]["lr"]
 
             # Log training loss and learning rates to wandb
-            if _WANDB_INSTALLED:
+            if wandb_initialized:
                 wandb.log(
                     {
                         "epoch": epoch,
