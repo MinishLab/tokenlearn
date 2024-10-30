@@ -1,11 +1,13 @@
 import argparse
 import json
 import logging
+import pickle
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+import regex
 import torch
 from model2vec import StaticModel
 from model2vec.distill import distill
@@ -17,6 +19,35 @@ from tqdm import tqdm
 from tokenlearn.train import TextDataset, train_supervised
 
 logging.basicConfig(level=logging.INFO)
+
+
+def create_vocab(texts: list[str], vocab_size: int = 200000) -> list[str]:
+    """Create a vocabulary from a list of texts."""
+    # Compile the regex for tokenization
+    my_regex = regex.compile(r"\w+|[^\w\s]+")
+
+    # Function to tokenize texts with a progress bar
+    def tokenize_texts(texts: list[str]) -> list[str]:
+        all_tokens = []
+        for text in tqdm(texts, desc="Tokenizing texts"):
+            tokens = my_regex.findall(text.lower())
+            all_tokens.extend(tokens)
+        return all_tokens
+
+    # Tokenize the texts
+    tokens = tokenize_texts(texts)
+
+    # Build the vocabulary with a progress bar for counting
+    token_counts: Counter = Counter()
+    batch_size = 10000  # Process tokens in batches for progress
+
+    for i in tqdm(range(0, len(tokens), batch_size), desc="Counting tokens"):
+        batch = tokens[i : i + batch_size]
+        token_counts.update(batch)
+
+    vocab = [word for word, _ in token_counts.most_common(vocab_size)]
+
+    return vocab
 
 
 def collect_means_and_texts(paths: list[Path]) -> tuple[list[str], np.ndarray]:
@@ -57,6 +88,10 @@ def train_model(
     :param random_embeddings: Use random embeddings instead of distilling the model.
     :return: The trained model.
     """
+    # Collect paths for training
+    paths = sorted(Path(data_path).glob("*.json"))
+    train_txt, train_vec = collect_means_and_texts(paths)
+    vocab = create_vocab(train_txt)
     if random_embeddings:
         logging.info("Using random embeddings.")
         s = distill(model_name)
@@ -64,11 +99,8 @@ def train_model(
         v = _post_process_embeddings(v, 256, False).astype(np.float32)
         s = StaticModel(v, s.tokenizer)
     else:
-        s = distill(model_name)
+        s = distill(model_name, vocabulary=vocab)
 
-    # Collect paths for training
-    paths = sorted(Path(data_path).glob("*.json"))
-    train_txt, train_vec = collect_means_and_texts(paths)
     train_data = TextDataset(train_txt, torch.from_numpy(train_vec), s.tokenizer)
 
     # Train the model
