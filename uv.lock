@@ -2927,7 +2927,7 @@ requires-dist = [
     { name = "datasets" },
     { name = "evaluation", git = "https://github.com/MinishLab/evaluation?rev=main" },
     { name = "ipython", marker = "extra == 'dev'" },
-    { name = "model2vec", specifier = "==0.3.0" },
+    { name = "model2vec", specifier = ">=0.3.0" },
     { name = "more-itertools", specifier = ">=10.5.0" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "pre-commit", marker = "extra == 'dev'" },
