@@ -15,7 +15,7 @@ from tokenlearn.utils import calculate_token_probabilities, collect_means_and_te
 logging.basicConfig(level=logging.INFO)
 
 
-def train_model(model_name: str, train_txt: List[str], train_vec: np.ndarray, device: str = "cpu") -> StaticModel:
+def train_model(model_name: str, train_txt: list[str], train_vec: np.ndarray, device: str = "cpu") -> StaticModel:
     """
     Train a tokenlearn model.
 
