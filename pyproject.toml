@@ -1,19 +1,39 @@
 [project]
 name = "tokenlearn"
-description = "Pre-train static embedders."
+description = "Pre-train Static Embedders"
 readme = "README.md"
-version = "0.1.0"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
+authors = [{name = "Thomas van Dongen", email = "thomas123@live.nl"}, { name = "Stéphan Tulkens", email = "stephantul@gmail.com"}]
+dynamic = ["version"]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Natural Language :: English",
+]
 
 dependencies = [
-    "model2vec>=0.3.0",
+    "model2vec[distill]>=0.3.0",
     "sentence-transformers",
     "torch",
     "datasets",
     "more-itertools>=10.5.0",
     "reach@git+https://github.com/stephantul/reach@main",
-    "evaluation@git+https://github.com/MinishLab/evaluation@main"
 ]
+
+
+[project.scripts]
+tokenlearn-train = "train:main"
+tokenlearn-featurize = "tokenlearn.featurize:main"
 
 [build-system]
 requires = ["setuptools>=64", "setuptools_scm>=8"]
@@ -29,6 +49,8 @@ dev = [
     "pytest-coverage",
     "ruff",
 ]
+
+evaluation = ["evaluation@git+https://github.com/MinishLab/evaluation@main"]
 
 [tool.ruff]
 exclude = [".venv/"]
@@ -77,3 +99,6 @@ packages = ["tokenlearn"]
 
 [tool.setuptools_scm]
 # can be empty if no extra settings are needed, presence enables setuptools_scm
+
+[tool.setuptools.dynamic]
+version = {attr = "tokenlearn.version.__version__"}

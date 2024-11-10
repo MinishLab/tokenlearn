@@ -3,22 +3,25 @@ Tokenlearn is a method to pre-train [Model2Vec](https://github.com/MinishLab/mod
 
 The method is described in detail in our [Tokenlearn blogpost](https://minishlab.github.io/tokenlearn_blogpost/).
 
-## Usage
+## Quickstart
 
-### Featurizing
-Tokenlearn is trained using means from a sentence transformer. To create means, the `featurize` script can be used:
+Install the package with:
 
 ```bash
-python tokenlearn/featurize.py
+pip install tokenlearn
 ```
 
-This will create means for [C4](https://huggingface.co/datasets/allenai/c4) using [bge-base-en-v1.5](https://huggingface.co/BAAI/bge-base-en-v1.5).
+The basic usage of Tokenlearn consists of two CLI scripts: `featurize` and `train`.
 
-### Training
-The easiest way to train using Tokenlearn is to use the CLI. You can use the following command to train a model:
+Tokenlearn is trained using means from a sentence transformer. To create means, the `tokenlearn-featurize` CLI can be used:
 
 ```bash
-python train.py --data-path <path-to-your-data> --save-path <path-to-save-model>
+tokenlearn-featurize --model-name "baai/bge-base-en-v1.5" --output-dir "data/c4_features"
+```
+
+To train a model on the featurized data, the `tokenlearn-train` CLI can be used:
+```bash
+tokenlearn-train --model-name "baai/bge-base-en-v1.5" --data-path "data/c4_features" --save-path "<path-to-save-model>"
 ```
 
 Training will create two models:
@@ -27,9 +30,13 @@ Training will create two models:
 
 NOTE: the code assumes that the padding token ID in your tokenizer is 0. If this is not the case, you will need to modify the code.
 
-### Evaluating
+### Evaluation
 
-To evaluate a model, you can use the following command:
+To evaluate a model, you can use the following command after installing the optional evaluation dependencies:
+
+```bash
+pip install tokenlearn[evaluation]
+```
 
 ```python
 from model2vec import StaticModel
