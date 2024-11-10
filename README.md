@@ -69,3 +69,7 @@ task_scores = summarize_results(parsed_results)
 # Print the results in a leaderboard format
 print(make_leaderboard(task_scores))
 ```
+
+## License
+
+MIT
