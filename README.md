@@ -16,12 +16,12 @@ The basic usage of Tokenlearn consists of two CLI scripts: `featurize` and `trai
 Tokenlearn is trained using means from a sentence transformer. To create means, the `tokenlearn-featurize` CLI can be used:
 
 ```bash
-tokenlearn-featurize --model-name "baai/bge-base-en-v1.5" --output-dir "data/c4_features"
+python3 -m tokenlearn.featurize --model-name "baai/bge-base-en-v1.5" --output-dir "data/c4_features"
 ```
 
 To train a model on the featurized data, the `tokenlearn-train` CLI can be used:
 ```bash
-tokenlearn-train --model-name "baai/bge-base-en-v1.5" --data-path "data/c4_features" --save-path "<path-to-save-model>"
+python3 -m tokenlearn.train --model-name "baai/bge-base-en-v1.5" --data-path "data/c4_features" --save-path "<path-to-save-model>"
 ```
 
 Training will create two models:

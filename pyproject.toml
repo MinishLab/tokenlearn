@@ -29,11 +29,6 @@ dependencies = [
     "more-itertools>=10.5.0",
 ]
 
-
-[project.scripts]
-tokenlearn-train = "tokenlearn.train:main"
-tokenlearn-featurize = "tokenlearn.featurize:main"
-
 [build-system]
 requires = ["setuptools>=64", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
