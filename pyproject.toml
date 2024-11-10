@@ -44,6 +44,11 @@ dev = [
     "ruff",
 ]
 
+[project.urls]
+"Homepage" = "https://github.com/MinishLab"
+"Bug Reports" = "https://github.com/MinishLab/tokenlearn/issues"
+"Source" = "https://github.com/MinishLab/tokenlearn"
+
 [tool.ruff]
 exclude = [".venv/"]
 line-length = 120
