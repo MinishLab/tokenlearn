@@ -60,9 +60,6 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
         base_filename = f"featurized_{i}"
         vectors_filepath = out_path / (base_filename + "_vectors.npy")
         items_filepath = out_path / (base_filename + "_items.json")
-        # Optionally skip existing files
-        # if vectors_filepath.exists() and items_filepath.exists():
-        #     continue
         list_batch = [x["text"].strip() for x in batch if x.get("text")]
         if not list_batch:
             continue  # Skip empty batches
