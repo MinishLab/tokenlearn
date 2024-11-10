@@ -27,12 +27,11 @@ dependencies = [
     "torch",
     "datasets",
     "more-itertools>=10.5.0",
-    "reach@git+https://github.com/stephantul/reach@main",
 ]
 
 
 [project.scripts]
-tokenlearn-train = "train:main"
+tokenlearn-train = "tokenlearn.train:main"
 tokenlearn-featurize = "tokenlearn.featurize:main"
 
 [build-system]
@@ -49,8 +48,6 @@ dev = [
     "pytest-coverage",
     "ruff",
 ]
-
-evaluation = ["evaluation@git+https://github.com/MinishLab/evaluation@main"]
 
 [tool.ruff]
 exclude = [".venv/"]

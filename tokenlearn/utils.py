@@ -1,37 +1,48 @@
 import json
+import logging
 from collections import Counter
 from pathlib import Path
 
 import numpy as np
 from more_itertools import batched
-from reach import Reach
 from tokenizers import Tokenizer
 from tqdm import tqdm
 
+logger = logging.getLogger(__name__)
+
 
 def collect_means_and_texts(paths: list[Path]) -> tuple[list[str], np.ndarray]:
-    """Collect means and texts from a list of reach paths."""
+    """Collect means and texts from a list of paths."""
     txts = []
-    v = []
-    for path in tqdm(paths, desc="Collecting means and texts"):
-        if not path.name.endswith(".json"):
+    vectors_list = []
+    for items_path in tqdm(paths, desc="Collecting means and texts"):
+        if not items_path.name.endswith("_items.json"):
             continue
+        base_path = items_path.with_name(items_path.stem.replace("_items", ""))
+        vectors_path = base_path.with_name(base_path.name + "_vectors.npy")
         try:
-            r = Reach.load(path)
-        except KeyError:
-            # Workaround for old format reach
-            vectors_path = str(path).replace("_items.json", "_vectors.npy")
-            items = json.load(open(path))["items"]
-            vectors = np.load(open(vectors_path, "rb"))
-            r = Reach(vectors, items)
-        # Filter out any NaN vectors before appending
-        non_nan_indices = ~np.isnan(r.vectors).any(axis=1)
-        valid_vectors = r.vectors[non_nan_indices]
-        valid_items = np.array(r.sorted_items)[non_nan_indices]
-        txts.extend(valid_items)
-        v.append(valid_vectors)
+            with open(items_path, "r") as f:
+                data = json.load(f)
+            items = data.get("items", [])
+            vectors = np.load(vectors_path, allow_pickle=False)
+        except (KeyError, FileNotFoundError, ValueError) as e:
+            logger.info(f"Error loading data from {base_path}: {e}")
+            continue
 
-    return txts, np.concatenate(v)
+        # Filter out any NaN vectors before appending
+        vectors = np.array(vectors)
+        items = np.array(items)
+        non_nan_indices = ~np.isnan(vectors).any(axis=1)
+        valid_vectors = vectors[non_nan_indices]
+        valid_items = items[non_nan_indices]
+        txts.extend(valid_items.tolist())
+        vectors_list.append(valid_vectors)
+
+    if vectors_list:
+        all_vectors = np.concatenate(vectors_list, axis=0)
+    else:
+        all_vectors = np.array([])
+    return txts, all_vectors
 
 
 def calculate_token_probabilities(tokenizer: Tokenizer, txt: list[str]) -> np.ndarray:

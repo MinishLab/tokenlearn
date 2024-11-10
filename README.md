@@ -35,7 +35,8 @@ NOTE: the code assumes that the padding token ID in your tokenizer is 0. If this
 To evaluate a model, you can use the following command after installing the optional evaluation dependencies:
 
 ```bash
-pip install tokenlearn[evaluation]
+pip install evaluation@git+https://github.com/MinishLab/evaluation@main
+
 ```
 
 ```python

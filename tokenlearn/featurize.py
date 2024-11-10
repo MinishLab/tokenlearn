@@ -1,16 +1,38 @@
 import argparse
+import json
+import logging
 from pathlib import Path
 from typing import Iterable
 
 import numpy as np
 from datasets import load_dataset
 from more_itertools import batched
-from reach import Reach
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
 _SAVE_INTERVAL = 10
 _MAX_MEANS = 1100000
+
+logger = logging.getLogger(__name__)
+
+
+def save_data(means: list[np.ndarray], txts: list[str], base_filepath: str) -> None:
+    """
+    Save the means and texts to separate files.
+
+    :param means: List of numpy arrays representing the mean embeddings.
+    :param txts: List of texts corresponding to the embeddings.
+    :param base_filepath: Base path for the output files.
+    """
+    vectors_filepath = base_filepath + "_vectors.npy"
+    items_filepath = base_filepath + "_items.json"
+
+    # Save the embeddings (vectors) to a .npy file
+    np.save(vectors_filepath, np.array(means))
+    # Save the texts to a JSON file
+    with open(items_filepath, "w") as f:
+        json.dump({"items": txts}, f)
+    logger.info(f"Saved {len(txts)} texts to {items_filepath} and vectors to {vectors_filepath}")
 
 
 def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str) -> None:
@@ -35,39 +57,56 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
 
     for index, batch in enumerate(tqdm(batched(texts, 32))):
         i = index // _SAVE_INTERVAL
-        if (out_path / f"featurized_{i}.json").exists():
-            continue
+        base_filename = f"featurized_{i}"
+        vectors_filepath = out_path / (base_filename + "_vectors.npy")
+        items_filepath = out_path / (base_filename + "_items.json")
+        # Optionally skip existing files
+        # if vectors_filepath.exists() and items_filepath.exists():
+        #     continue
         list_batch = [x["text"].strip() for x in batch if x.get("text")]
-        tokenized_ids = model.tokenize(list_batch)["input_ids"]
-        token_embeddings: list[np.ndarray] = [
-            x.cpu().numpy() for x in model.encode(list_batch, output_value="token_embeddings", convert_to_numpy=True)
-        ]
+        if not list_batch:
+            continue  # Skip empty batches
 
-        for tokenized_id, token_embedding in zip(tokenized_ids, token_embeddings, strict=True):
-            text = model.tokenizer.decode(tokenized_id[1 : len(token_embedding) - 1])
+        # Encode the batch to get token embeddings
+        token_embeddings = model.encode(
+            list_batch,
+            output_value="token_embeddings",
+            convert_to_tensor=True,
+        )
+
+        # Tokenize the batch to get input IDs
+        tokenized_ids = model.tokenize(list_batch)["input_ids"]
+
+        for tokenized_id, token_embedding in zip(tokenized_ids, token_embeddings):
+            # Convert token IDs to tokens (excluding special tokens)
+            token_ids = tokenized_id[1:-1]
+            # Decode tokens to text
+            text = model.tokenizer.decode(token_ids)
             if text in seen:
                 continue
             seen.add(text)
-            mean = np.mean(token_embedding[1:-1], axis=0)
+            # Get the corresponding token embeddings (excluding special tokens)
+            token_embeds = token_embedding[1:-1]
+            # Convert embeddings to NumPy arrays
+            token_embeds = token_embeds.detach().cpu().numpy()
+            # Compute the mean of the token embeddings
+            mean = np.mean(token_embeds, axis=0)
             txts.append(text)
             means.append(mean)
             total_means += 1
 
             if total_means >= _MAX_MEANS:
-                r = Reach(means, txts)
-                r.save(out_path / f"featurized_{(index // _SAVE_INTERVAL)}.json")
+                save_data(means, txts, str(out_path / base_filename))
                 return
 
         if index > 0 and (index + 1) % _SAVE_INTERVAL == 0:
-            r = Reach(means, txts)
-            r.save(out_path / f"featurized_{(index // _SAVE_INTERVAL)}.json")
+            save_data(means, txts, str(out_path / base_filename))
             txts = []
             means = []
             seen = set()
     else:
-        if means:
-            r = Reach(means, txts)
-            r.save(out_path / f"featurized_{(index // _SAVE_INTERVAL)}.json")
+        if txts and means:
+            save_data(means, txts, str(out_path / base_filename))
 
 
 def main() -> None:
