@@ -19,6 +19,17 @@ Tokenlearn is trained using means from a sentence transformer. To create means, 
 python3 -m tokenlearn.featurize --model-name "baai/bge-base-en-v1.5" --output-dir "data/c4_features"
 ```
 
+NOTE: the default model is trained on the C4 dataset. If you want to use a different dataset, the following code can be used:
+
+```bash
+python3 -m tokenlearn.featurize \
+    --model-name "baai/bge-base-en-v1.5" \
+    --output-dir "data/c4_features" \
+    --dataset-path "allenai/c4" \
+    --dataset-name "en" \
+    --dataset-split "train"
+```
+
 To train a model on the featurized data, the `tokenlearn-train` CLI can be used:
 ```bash
 python3 -m tokenlearn.train --model-name "baai/bge-base-en-v1.5" --data-path "data/c4_features" --save-path "<path-to-save-model>"
