@@ -11,8 +11,6 @@ from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
 _SAVE_INTERVAL = 10
-_MAX_MEANS = 1100000
-
 logger = logging.getLogger(__name__)
 
 
@@ -35,13 +33,14 @@ def save_data(means: list[np.ndarray], txts: list[str], base_filepath: str) -> N
     logger.info(f"Saved {len(txts)} texts to {items_filepath} and vectors to {vectors_filepath}")
 
 
-def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str) -> None:
+def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str, max_means: int) -> None:
     """
     Featurize text using a sentence transformer.
 
     :param texts: Iterable of texts to featurize.
     :param model: SentenceTransformer model to use.
     :param output_dir: Directory to save the featurized texts.
+    :param max_means: Maximum number of mean embeddings to generate.
     :raises ValueError: If the model does not have a fixed dimension.
     """
     out_path = Path(output_dir)
@@ -58,8 +57,6 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
     for index, batch in enumerate(tqdm(batched(texts, 32))):
         i = index // _SAVE_INTERVAL
         base_filename = f"featurized_{i}"
-        vectors_filepath = out_path / (base_filename + "_vectors.npy")
-        items_filepath = out_path / (base_filename + "_items.json")
         list_batch = [x["text"].strip() for x in batch if x.get("text")]
         if not list_batch:
             continue  # Skip empty batches
@@ -92,7 +89,7 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str)
             means.append(mean)
             total_means += 1
 
-            if total_means >= _MAX_MEANS:
+            if total_means >= max_means:
                 save_data(means, txts, str(out_path / base_filename))
                 return
 
@@ -121,11 +118,46 @@ def main() -> None:
         default="data/c4_bgebase",
         help="Directory to save the featurized texts.",
     )
+    parser.add_argument(
+        "--dataset-path",
+        type=str,
+        default="allenai/c4",
+        help="The dataset path or name (e.g. 'allenai/c4').",
+    )
+    parser.add_argument(
+        "--dataset-name",
+        type=str,
+        default="en",
+        help="The dataset configuration name (e.g., 'en' for C4).",
+    )
+    parser.add_argument(
+        "--dataset-split",
+        type=str,
+        default="train",
+        help="The dataset split (e.g., 'train', 'validation').",
+    )
+    parser.add_argument(
+        "--no-streaming",
+        action="store_true",
+        help="Disable streaming mode when loading the dataset.",
+    )
+    parser.add_argument(
+        "--max-means",
+        type=int,
+        default=1000000,
+        help="The maximum number of mean embeddings to generate.",
+    )
+
     args = parser.parse_args()
 
     model = SentenceTransformer(args.model_name)
-    dataset = load_dataset("allenai/c4", name="en", split="train", streaming=True)
-    featurize(dataset, model, args.output_dir)
+    dataset = load_dataset(
+        args.dataset_path,
+        name=args.dataset_name,
+        split=args.dataset_split,
+        streaming=not args.no_streaming,
+    )
+    featurize(dataset, model, args.output_dir, args.max_means)
 
 
 if __name__ == "__main__":
