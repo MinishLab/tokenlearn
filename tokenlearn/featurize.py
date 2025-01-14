@@ -33,7 +33,7 @@ def save_data(means: list[np.ndarray], txts: list[str], base_filepath: str) -> N
     logger.info(f"Saved {len(txts)} texts to {items_filepath} and vectors to {vectors_filepath}")
 
 
-def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str, max_means: int) -> None:
+def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str, max_means: int, batch_size: int) -> None:
     """
     Featurize text using a sentence transformer.
 
@@ -41,6 +41,7 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str,
     :param model: SentenceTransformer model to use.
     :param output_dir: Directory to save the featurized texts.
     :param max_means: Maximum number of mean embeddings to generate.
+    :param batch_size: Batch size to use during encoding. Larger batch sizes may improve speed but require more memory.
     :raises ValueError: If the model does not have a fixed dimension.
     """
     out_path = Path(output_dir)
@@ -54,7 +55,7 @@ def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str,
     seen = set()
     total_means = 0
 
-    for index, batch in enumerate(tqdm(batched(texts, 32))):
+    for index, batch in enumerate(tqdm(batched(texts, batch_size))):
         i = index // _SAVE_INTERVAL
         base_filename = f"featurized_{i}"
         list_batch = [x["text"].strip() for x in batch if x.get("text")]
@@ -147,6 +148,13 @@ def main() -> None:
         default=1000000,
         help="The maximum number of mean embeddings to generate.",
     )
+    
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=32,
+         help="Batch size to use for encoding the texts.",
+    )
 
     args = parser.parse_args()
 
@@ -157,7 +165,7 @@ def main() -> None:
         split=args.dataset_split,
         streaming=not args.no_streaming,
     )
-    featurize(dataset, model, args.output_dir, args.max_means)
+    featurize(dataset, model, args.output_dir, args.max_means, args.batch_size)
 
 
 if __name__ == "__main__":
