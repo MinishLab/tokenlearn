@@ -10,12 +10,16 @@ from model2vec.distill import distill
 from sklearn.decomposition import PCA
 
 from tokenlearn.pretrain import TextDataset, train_supervised
-from tokenlearn.utils import calculate_token_probabilities, collect_means_and_texts
+from tokenlearn.utils import calculate_token_probabilities, collect_means_and_texts, create_vocab
 
 logging.basicConfig(level=logging.INFO)
 
+logger = logging.getLogger(__name__)
 
-def train_model(model_name: str, train_txt: list[str], train_vec: np.ndarray, device: str = "cpu") -> StaticModel:
+
+def train_model(
+    model_name: str, train_txt: list[str], train_vec: np.ndarray, device: str = "cpu", vocab_size: int | None = None
+) -> StaticModel:
     """
     Train a tokenlearn model.
 
@@ -23,9 +27,16 @@ def train_model(model_name: str, train_txt: list[str], train_vec: np.ndarray, de
     :param train_txt: List of texts to train on.
     :param train_vec: List of vectors to train on.
     :param device: Device to run the training on.
+    :param vocab_size: The vocabulary size to use (optional).
     :return: The trained model.
     """
-    model = distill(model_name)
+    if vocab_size:
+        # Create a vocabulary if a vocab size is specified
+        vocab = create_vocab(texts=train_txt, vocab_size=vocab_size)
+        model = distill(model_name=model_name, vocabulary=vocab)
+        logger.info(f"Vocabulary size: {len(vocab)}")
+    else:
+        model = distill(model_name=model_name)
     train_data = TextDataset(train_txt, torch.from_numpy(train_vec), model.tokenizer)
 
     # Train the model
@@ -103,6 +114,12 @@ def main() -> None:
         default="cpu",
         help="Device to run the training on (e.g., 'cpu', 'cuda').",
     )
+    parser.add_argument(
+        "--vocab-size",
+        type=int,
+        default=None,
+        help="The vocabulary size to use for training.",
+    )
     args = parser.parse_args()
 
     # Collect paths for training data
@@ -110,7 +127,7 @@ def main() -> None:
     train_txt, train_vec = collect_means_and_texts(paths)
 
     # Train the model
-    model = train_model(args.model_name, train_txt, train_vec, device=args.device)
+    model = train_model(args.model_name, train_txt, train_vec, device=args.device, vocab_size=args.vocab_size)
     save_model(model, args.save_path)
 
     # Apply weighting and save the weighted model

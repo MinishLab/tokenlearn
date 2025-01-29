@@ -33,7 +33,9 @@ def save_data(means: list[np.ndarray], txts: list[str], base_filepath: str) -> N
     logger.info(f"Saved {len(txts)} texts to {items_filepath} and vectors to {vectors_filepath}")
 
 
-def featurize(texts: Iterable[str], model: SentenceTransformer, output_dir: str, max_means: int, batch_size: int) -> None:
+def featurize(
+    texts: Iterable[str], model: SentenceTransformer, output_dir: str, max_means: int, batch_size: int
+) -> None:
     """
     Featurize text using a sentence transformer.
 
@@ -148,12 +150,12 @@ def main() -> None:
         default=1000000,
         help="The maximum number of mean embeddings to generate.",
     )
-    
+
     parser.add_argument(
         "--batch-size",
         type=int,
         default=32,
-         help="Batch size to use for encoding the texts.",
+        help="Batch size to use for encoding the texts.",
     )
 
     args = parser.parse_args()
