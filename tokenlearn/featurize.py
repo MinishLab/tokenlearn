@@ -65,27 +65,19 @@ def featurize(
             continue  # Skip empty batches
 
         # Encode the batch to get token embeddings
-        token_embeddings = model.encode(
-            list_batch,
-            output_value="token_embeddings",
-            convert_to_tensor=True,
-        )
+        token_embeddings = model.encode(list_batch, output_value="token_embeddings", convert_to_numpy=True)
 
         # Tokenize the batch to get input IDs
         tokenized_ids = model.tokenize(list_batch)["input_ids"]
 
         for tokenized_id, token_embedding in zip(tokenized_ids, token_embeddings):
-            # Convert token IDs to tokens (excluding special tokens)
-            token_ids = tokenized_id[1:-1]
-            # Decode tokens to text
-            text = model.tokenizer.decode(token_ids)
+            # Decode the token IDs to get the text
+            text = model.tokenizer.decode(tokenized_id, skip_special_tokens=True)
             if text in seen:
                 continue
             seen.add(text)
             # Get the corresponding token embeddings (excluding special tokens)
-            token_embeds = token_embedding[1:-1]
-            # Convert embeddings to NumPy arrays
-            token_embeds = token_embeds.detach().cpu().numpy()
+            token_embeds = token_embedding[1:-1].detach().cpu().numpy()
             # Compute the mean of the token embeddings
             mean = np.mean(token_embeds, axis=0)
             txts.append(text)
