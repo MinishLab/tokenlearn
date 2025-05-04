@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def train_model(
-    model_name: str, train_txt: list[str], train_vec: np.ndarray, device: str = "cpu", vocab_size: int | None = None
+    model_name: str, train_txt: list[str], train_vec: np.ndarray, device: str = "cpu",batch_size: int= 32, vocab_size: int | None = None,trust_remote_code: bool=True
 ) -> StaticModel:
     """
     Train a tokenlearn model.
@@ -33,14 +33,14 @@ def train_model(
     if vocab_size:
         # Create a vocabulary if a vocab size is specified
         vocab = create_vocab(texts=train_txt, vocab_size=vocab_size)
-        model = distill(model_name=model_name, vocabulary=vocab)
+        model = distill(model_name=model_name, vocabulary=vocab,trust_remote_code=trust_remote_code)
         logger.info(f"Vocabulary size: {len(vocab)}")
     else:
-        model = distill(model_name=model_name)
+        model = distill(model_name=model_name,trust_remote_code=trust_remote_code)
     train_data = TextDataset(train_txt, torch.from_numpy(train_vec), model.tokenizer)
 
     # Train the model
-    model, _ = train_supervised(train_dataset=train_data, model=model, device=device)
+    model, _ = train_supervised(train_dataset=train_data, model=model, device=device,batch_size=batch_size)
     return model
 
 
@@ -120,6 +120,18 @@ def main() -> None:
         default=None,
         help="The vocabulary size to use for training.",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=32,
+        help="The batch size to use for training.",
+    )
+    parser.add_argument(
+        "--trust-remote-code",
+        type=bool,
+        default=True,
+        help="Trust remote code from the hub"
+    )
     args = parser.parse_args()
 
     # Collect paths for training data
@@ -127,7 +139,7 @@ def main() -> None:
     train_txt, train_vec = collect_means_and_texts(paths)
 
     # Train the model
-    model = train_model(args.model_name, train_txt, train_vec, device=args.device, vocab_size=args.vocab_size)
+    model = train_model(args.model_name, train_txt, train_vec, device=args.device, vocab_size=args.vocab_size,batch_size=args.batch_size,trust_remote_code=args.trust_remote_code )
     save_model(model, args.save_path)
 
     # Apply weighting and save the weighted model
