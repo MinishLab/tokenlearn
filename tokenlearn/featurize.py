@@ -57,7 +57,7 @@ def featurize(
         batch_embeddings = model.encode(batch, output_value="token_embeddings")  # type: ignore  # Annoying
         for text, embedding in zip(batch, batch_embeddings):
             texts.append(_truncate_text(tokenizer, text))
-            embeddings.append(embedding[1:-1].mean(axis=0).cpu().numpy())
+            embeddings.append(embedding[1:-1].float().mean(axis=0).cpu().numpy())
         if i and i % _SAVE_EVERY == 0:
             json.dump(texts, open(output_dir_path / f"feature_{i}.json", "w"), indent=4)
             np.save(output_dir_path / f"feature_{i}.npy", embeddings)

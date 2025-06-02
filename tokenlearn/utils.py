@@ -51,7 +51,7 @@ def collect_means_and_texts(paths: list[Path]) -> tuple[list[str], np.ndarray]:
             continue
 
         # Filter out any NaN vectors before appending
-        vectors = np.array(vectors)
+        vectors = np.array(vectors, dtype=np.float32)
         items = np.array(items)
         non_nan_indices = ~np.isnan(vectors).any(axis=1)
         valid_vectors = vectors[non_nan_indices]

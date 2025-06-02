@@ -20,23 +20,20 @@ _MAX_N_VAL_SAMPLES = 10_000
 
 
 def train_model(
-    model_name: str,
+    model: StaticModel,
     train_txt: list[str],
     train_vec: np.ndarray,
     device: str = "cpu",
-    vocab_size: int | None = None,
     pca_dims: int = 256,
 ) -> StaticModel:
     """
     Train a tokenlearn model.
 
-    :param model_name: The sentence transformer model name for distillation.
+    :param model: The static model to distill further.
     :param train_txt: List of texts to train on.
     :param train_vec: List of vectors to train on.
     :param device: Device to run the training on.
-    :param vocab_size: The vocabulary size to use (optional).
     :param pca_dims: Number of dimensions to reduce the target embeddings to using PCA.
-        The model will use the same number of dimensions for the embeddings.
     :return: The trained model.
     """
     pca_for_targets = PCA(n_components=pca_dims)
@@ -54,30 +51,12 @@ def train_model(
         train_vec[-val_samples:],
     )
 
-    if vocab_size:
-        # Create a vocabulary if a vocab size is specified
-        vocab = create_vocab(texts=train_txt, vocab_size=vocab_size)
-        logger.info(f"Vocabulary created with {len(vocab)} tokens.")
-    else:
-        vocab = None
-    model = distill(model_name=model_name, quantize_to="float32", vocabulary=vocab, pca_dims=pca_dims)
     train_data = TextDataset(train_txt, torch.from_numpy(train_vec), model.tokenizer)
     val_data = TextDataset(val_txt, torch.from_numpy(val_vec), model.tokenizer)
 
     # Train the model
     model = train_supervised(train_dataset=train_data, validation_dataset=val_data, model=model, device=device)
     return model
-
-
-def save_model(model: StaticModel, save_path: str) -> None:
-    """
-    Save the model to the specified path.
-
-    :param model: The model to save.
-    :param save_path: Path to save the model.
-    """
-    model.save_pretrained(save_path)
-    logging.info(f"Model saved to {save_path}")
 
 
 def main() -> None:
@@ -114,6 +93,11 @@ def main() -> None:
         help="The vocabulary size to use for training.",
     )
     parser.add_argument(
+        "--trust-remote-code",
+        action="store_true",
+        help="Trust remote code when loading the model.",
+    )
+    parser.add_argument(
         "--pca-dims",
         type=int,
         default=256,
@@ -125,11 +109,22 @@ def main() -> None:
     paths = sorted(Path(args.data_path).glob("*.json"))
     train_txt, train_vec = collect_means_and_texts(paths)
 
-    # Train the model
-    model = train_model(
-        args.model_name, train_txt, train_vec, device=args.device, vocab_size=args.vocab_size, pca_dims=args.pca_dims
+    pca_dims = args.pca_dims
+
+    vocab_size = args.vocab_size
+    if vocab_size:
+        # Create a vocabulary if a vocab size is specified
+        vocab = create_vocab(texts=train_txt, vocab_size=vocab_size)
+        logger.info(f"Vocabulary created with {len(vocab)} tokens.")
+    else:
+        vocab = None
+    model = distill(
+        model_name=args.model_name, quantize_to="float32", vocabulary=vocab, pca_dims=pca_dims, trust_remote_code=True
     )
-    save_model(model, args.save_path)
+
+    # Train the model
+    model = train_model(model, train_txt, train_vec, device=args.device, pca_dims=pca_dims)
+    model.save_pretrained(args.save_path)
 
 
 if __name__ == "__main__":
