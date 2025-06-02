@@ -46,12 +46,13 @@ def collect_means_and_texts(paths: list[Path]) -> tuple[list[str], np.ndarray]:
             with open(items_path, "r") as f:
                 items = json.load(f)
             vectors = np.load(vectors_path, allow_pickle=False)
+            vectors = vectors.astype(np.float32)
         except (KeyError, FileNotFoundError, ValueError) as e:
             logger.info(f"Error loading data from {base_path}: {e}")
             continue
 
         # Filter out any NaN vectors before appending
-        vectors = np.array(vectors, dtype=np.float32)
+        vectors = np.stack(vectors)
         items = np.array(items)
         non_nan_indices = ~np.isnan(vectors).any(axis=1)
         valid_vectors = vectors[non_nan_indices]
