@@ -33,7 +33,7 @@ def create_vocab(texts: list[str], vocab_size: int = 56_000) -> list[str]:
     return vocab
 
 
-def collect_means_and_texts(paths: list[Path]) -> tuple[list[str], np.ndarray]:
+def collect_means_and_texts(paths: list[Path], max_samples: int | None = None) -> tuple[list[str], np.ndarray]:
     """Collect means and texts from a list of paths."""
     txts = []
     vectors_list = []
@@ -60,8 +60,16 @@ def collect_means_and_texts(paths: list[Path]) -> tuple[list[str], np.ndarray]:
         txts.extend(valid_items.tolist())
         vectors_list.append(valid_vectors)
 
+        if max_samples and len(txts) >= max_samples:
+            break
+
     if vectors_list:
         all_vectors = np.concatenate(vectors_list, axis=0)
     else:
         all_vectors = np.array([])
+
+    if max_samples:
+        txts = txts[:max_samples]
+        all_vectors = all_vectors[:max_samples]
+
     return txts, all_vectors
