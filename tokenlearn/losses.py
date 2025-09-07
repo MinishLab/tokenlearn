@@ -11,7 +11,7 @@ class Loss(str, Enum):
 
     MSE = "mse"
     COSINE = "cosine"
-    RANKING = "ranking"
+    CONTRASTIVE = "contrastive"
 
 
 def get_loss_function(loss: Loss) -> Callable:
@@ -20,8 +20,8 @@ def get_loss_function(loss: Loss) -> Callable:
         return nn.MSELoss()
     elif loss == Loss.COSINE:
         return CosineSimilarityLoss()
-    elif loss == Loss.RANKING:
-        return PairwiseRankingLoss()
+    elif loss == Loss.CONTRASTIVE:
+        return ContrastiveLoss()
     else:
         raise ValueError(f"Unknown loss function: {loss}")
 
@@ -44,7 +44,7 @@ class CosineSimilarityLoss(nn.Module):
         return loss
 
 
-class PairwiseRankingLoss(nn.Module):
+class ContrastiveLoss(nn.Module):
     def __init__(self, temperature: float = 0.07) -> None:
         """A simple pairwise ranking loss."""
         super().__init__()

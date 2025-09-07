@@ -72,7 +72,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--loss",
-        default="ranking",
+        default="contrastive",
         choices=Loss.__members__.values(),
         help="The loss function to use for training.",
     )
