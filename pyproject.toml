@@ -23,11 +23,12 @@ classifiers = [
 ]
 
 dependencies = [
-    "model2vec[distill]>=0.5.0",
+    "model2vec[distill,train]>=0.5.0",
     "sentence-transformers",
     "torch",
     "datasets",
     "more-itertools>=10.5.0",
+    "packaging>=25.0",
 ]
 
 [build-system]
@@ -44,6 +45,7 @@ dev = [
     "pytest-coverage",
     "ruff",
 ]
+wandb = ["wandb"]
 
 [project.urls]
 "Homepage" = "https://github.com/MinishLab"
