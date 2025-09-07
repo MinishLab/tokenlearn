@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 _DEFAULT_BATCH_SIZE = 256
+_DEFAULT_LEARNING_RATE = 1e-3
 
 
 def main() -> None:
@@ -75,6 +76,7 @@ def main() -> None:
         choices=Loss.__members__.values(),
         help="The loss function to use for training.",
     )
+    parser.add_argument("--lr", default=_DEFAULT_LEARNING_RATE, type=float, help="Learning rate for training.")
     parser.add_argument("--batch-size", type=int, default=_DEFAULT_BATCH_SIZE, help="Batch size for training.")
     args = parser.parse_args()
 
@@ -123,6 +125,7 @@ def main() -> None:
         use_wandb=args.use_wandb,
         project_name=args.project_name,
         run_name=run_name,
+        learning_rate=args.lr,
     )
 
     trainable.to_static_model().save_pretrained(args.save_path)
