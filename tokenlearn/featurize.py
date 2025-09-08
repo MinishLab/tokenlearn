@@ -17,13 +17,14 @@ _SAVE_EVERY = 32
 logger = logging.getLogger(__name__)
 
 
-def featurize(
+def featurize(  # noqa C901
     dataset: Iterator[dict[str, str]],
     model: SentenceTransformer,
     output_dir: str,
     max_means: int,
     batch_size: int,
     text_key: str,
+    max_length: int | None = None,
 ) -> None:
     """Make a directory and dump all kinds of data in it."""
     output_dir_path = Path(output_dir)
@@ -41,6 +42,11 @@ def featurize(
         raise ValueError("Model has no sentence embedding dimension.")
 
     tokenizer: PreTrainedTokenizer = model.tokenizer
+    if max_length is not None:
+        # Set both tokenizer and model max length
+        tokenizer.model_max_length = max_length
+        model.max_seq_length = max_length
+        logger.info(f"Set tokenizer maximum length to {max_length}.")
     # Binding i in case the dataset is empty.
     i = 0
     for i, batch in tqdm(enumerate(batched(dataset, n=batch_size))):
@@ -134,6 +140,7 @@ def main() -> None:
         default=32,
         help="Batch size to use for encoding the texts.",
     )
+    parser.add_argument("--max-length", type=int, default=None, help="Maximum token length for the tokenizer.")
 
     args = parser.parse_args()
 
@@ -152,7 +159,7 @@ def main() -> None:
         streaming=args.no_streaming,
     )
 
-    featurize(iter(dataset), model, output_dir, args.max_means, args.batch_size, args.key)
+    featurize(iter(dataset), model, output_dir, args.max_means, args.batch_size, args.key, max_length=args.max_length)
 
 
 if __name__ == "__main__":
