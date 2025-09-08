@@ -47,19 +47,6 @@ class StaticModelForFineTuning(FinetunableStaticModel):
         weights[self.pad_id] = 0
         return nn.Parameter(weights)
 
-    def _encode(self, input_ids: torch.Tensor) -> torch.Tensor:
-        """Forward pass through the mean."""
-        mask = (input_ids != self.pad_id).to(dtype=self.embeddings.weight.dtype)
-        emb = self.embeddings(input_ids)
-        w = (self.w[input_ids] * mask).to(emb.dtype)
-        weighted_sum = (emb * w.unsqueeze(-1)).sum(dim=1)
-
-        den = mask.sum(dim=1).clamp_min(1e-12)
-
-        out = weighted_sum / den.unsqueeze(-1)
-
-        return out
-
     def fit(
         self,
         X: Sequence[str],
