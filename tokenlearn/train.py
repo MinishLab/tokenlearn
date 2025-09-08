@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from model2vec import StaticModel
 from model2vec.distill import distill
 from sklearn.decomposition import PCA
 
@@ -23,11 +24,18 @@ _DEFAULT_LEARNING_RATE = 1e-3
 def main() -> None:
     """Main function to train and save a Model2Vec model using tokenlearn."""
     parser = argparse.ArgumentParser(description="Train a Model2Vec using tokenlearn.")
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
         "--model-name",
         type=str,
-        default="baai/bge-base-en-v1.5",
+        default=None,
         help="The model name for distillation (e.g., 'baai/bge-base-en-v1.5').",
+    )
+    group.add_argument(
+        "--model2vec-model-name",
+        type=str,
+        default=None,
+        help="The Model2Vec model name to initialize from (e.g., 'vocquant').",
     )
     parser.add_argument(
         "--data-path",
@@ -86,16 +94,30 @@ def main() -> None:
 
     pca_dims = args.pca_dims
 
-    vocab_size = args.vocab_size
-    if vocab_size:
-        # Create a vocabulary if a vocab size is specified
-        vocab = create_vocab(texts=train_txt, vocab_size=vocab_size)
-        logger.info(f"Vocabulary created with {len(vocab)} tokens.")
+    if args.model2vec_model_name:
+        if args.vocab_size:
+            logger.warning("Ignoring --vocab-size since --model2vec-model-name is provided.")
+        model = StaticModel.from_pretrained(
+            path=args.model2vec_model_name,
+            quantize_to="float32",
+        )
+        model_name = args.model2vec_model_name.replace("/", "_")
     else:
-        vocab = None
-    model = distill(
-        model_name=args.model_name, quantize_to="float32", vocabulary=vocab, pca_dims=pca_dims, trust_remote_code=True
-    )
+        vocab_size = args.vocab_size
+        if vocab_size:
+            # Create a vocabulary if a vocab size is specified
+            vocab = create_vocab(texts=train_txt, vocab_size=vocab_size)
+            logger.info(f"Vocabulary created with {len(vocab)} tokens.")
+        else:
+            vocab = None
+        model = distill(
+            model_name=args.model_name,
+            quantize_to="float32",
+            vocabulary=vocab,
+            pca_dims=pca_dims,
+            trust_remote_code=True,
+        )
+        model_name = args.model_name.replace("/", "_")
 
     # Train the model
     pca_for_targets = PCA(n_components=pca_dims)
@@ -103,7 +125,6 @@ def main() -> None:
     var = np.cumsum(pca_for_targets.explained_variance_ratio_)[-1]
     logger.info(f"Explained variance of target embeddings: {var:.2f}")
 
-    model_name = args.model_name.split("/")[-1]
     dataset_name = args.data_path.split("/")[-1]
     limit = args.limit_samples
 
