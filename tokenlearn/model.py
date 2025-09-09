@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from tempfile import TemporaryDirectory
-from typing import Sequence
+from typing import Any, Sequence
 
 import pytorch_lightning as pl
 import torch
@@ -25,7 +25,7 @@ _MAX_VAL_SAMPLES = 10_000
 
 class StaticModelForFineTuning(FinetunableStaticModel):
     def __init__(
-        self, vectors: torch.Tensor, tokenizer: Tokenizer, out_dim: int, pad_id: int, loss: Loss | str
+        self, vectors: torch.Tensor, tokenizer: Tokenizer, out_dim: int, pad_id: int, loss: Loss | str, **kwargs: Any
     ) -> None:
         """
         Initialize from a model.
@@ -36,28 +36,16 @@ class StaticModelForFineTuning(FinetunableStaticModel):
         :param pad_id: The padding id. This can be any id.
         :param loss: The Enum of the loss function to use during training. This is not the function itself,
             but an enum which is used to later select the correct loss function.
+        :param **kwargs: Additional keyword arguments passed to the parent class.
         """
         self.loss = Loss(loss)
-        super().__init__(vectors=vectors, tokenizer=tokenizer, out_dim=out_dim, pad_id=pad_id)
+        super().__init__(vectors=vectors, tokenizer=tokenizer, out_dim=out_dim, pad_id=pad_id, **kwargs)
 
     def construct_weights(self) -> nn.Parameter:
         """Set the weights."""
-        weights = torch.ones(self.vectors.shape[0])
+        weights = torch.ones(self.vectors.shape[0], dtype=torch.float32)
         weights[self.pad_id] = 0
         return nn.Parameter(weights)
-
-    def sub_forward(self, input_ids: torch.Tensor) -> torch.Tensor:
-        """Forward pass through the mean."""
-        mask = (input_ids != self.pad_id).to(dtype=self.embeddings.weight.dtype)
-        emb = self.embeddings(input_ids)
-        w = (self.w[input_ids] * mask).to(emb.dtype)
-        weighted_sum = (emb * w.unsqueeze(-1)).sum(dim=1)
-
-        den = mask.sum(dim=1).clamp_min(1e-12)
-
-        out = weighted_sum / den.unsqueeze(-1)
-
-        return out
 
     def fit(
         self,
