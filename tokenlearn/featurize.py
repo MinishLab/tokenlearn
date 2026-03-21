@@ -35,12 +35,14 @@ def _compact_checkpoints(checkpoints_dir: Path, output_dir: Path, keep_checkpoin
 
     logger.info("Compacting checkpoints into final dataset...")
     # Build the compacted dataset in a sibling temp dir, then replace output_dir.
-    # Replacing the whole directory avoids stale Arrow files from older saves.
     tmp_dir = output_dir.parent / f"{output_dir.name}.tmp"
     if tmp_dir.exists():
         shutil.rmtree(tmp_dir)
-    concatenate_datasets([load_from_disk(str(d)) for d in part_dirs]).save_to_disk(str(tmp_dir))
+    # Load all parts and concatenate them into a single dataset, then save to the temp dir.
+    dataset = concatenate_datasets([load_from_disk(str(d)) for d in part_dirs])
+    dataset.save_to_disk(str(tmp_dir))
     if output_dir.exists():
+        # Remove the old output dir before renaming the temp dir to avoid leaving stale Arrow files from previous runs.
         shutil.rmtree(output_dir)
     tmp_dir.rename(output_dir)
     if not keep_checkpoints:
