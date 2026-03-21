@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import regex
-from datasets import load_from_disk
+from datasets import concatenate_datasets, load_from_disk
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,19 @@ def create_vocab(texts: list[str], vocab_size: int = 56_000) -> list[str]:
 
 def collect_means_and_texts(data_path: str | Path, max_samples: int | None = None) -> tuple[list[str], np.ndarray]:
     """Collect means and texts from a HuggingFace dataset directory."""
-    dataset = load_from_disk(str(data_path))
+    shards = []
+    rows = 0
+    for shard_dir in sorted(Path(data_path).glob("shard_*/")):
+        shard = load_from_disk(str(shard_dir))
+        shards.append(shard)
+        rows += len(shard)
+        if max_samples and rows >= max_samples:
+            break
+
+    dataset = concatenate_datasets(shards)
+    if max_samples:
+        dataset = dataset.select(range(min(max_samples, len(dataset))))
+
     texts = dataset["text"]
     vectors = np.array(dataset["embedding"], dtype=np.float32)
 

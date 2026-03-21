@@ -17,16 +17,13 @@ _FEATURES = Features({"text": Value("string"), "embedding": Sequence(Value("floa
 logger = logging.getLogger(__name__)
 
 
-def _append_to_dataset(output_dir: Path, texts: list[str], embeddings: list[np.ndarray]) -> None:
-    """Append a batch of texts and embeddings to the on-disk HuggingFace dataset."""
+def _save_shard(output_dir: Path, texts: list[str], embeddings: list[np.ndarray], shard_idx: int) -> None:
+    """Save a shard of texts and embeddings as a HuggingFace dataset."""
     shard = Dataset.from_dict(
         {"text": texts, "embedding": [e.tolist() for e in embeddings]},
         features=_FEATURES,
     )
-    if (output_dir / "dataset_info.json").exists():
-        existing = load_from_disk(str(output_dir))
-        shard = concatenate_datasets([existing, shard])
-    shard.save_to_disk(str(output_dir))
+    shard.save_to_disk(str(output_dir / f"shard_{shard_idx:08d}"))
 
 
 def featurize(  # noqa C901
@@ -42,10 +39,11 @@ def featurize(  # noqa C901
     output_dir_path = Path(output_dir)
     output_dir_path.mkdir(parents=True, exist_ok=True)
 
-    rows_done = 0
-    if (output_dir_path / "dataset_info.json").exists():
-        rows_done = len(load_from_disk(str(output_dir_path)))
-        logger.info(f"Resuming from {rows_done} previously written rows.")
+    shard_dirs = sorted(output_dir_path.glob("shard_*/"))
+    shard_idx = len(shard_dirs)
+    rows_done = sum(len(load_from_disk(str(d))) for d in shard_dirs)
+    if rows_done:
+        logger.info(f"Resuming from {rows_done} previously written rows ({shard_idx} shards).")
 
     texts = []
     embeddings = []
@@ -77,11 +75,12 @@ def featurize(  # noqa C901
             texts.append(_truncate_text(tokenizer, text))
             embeddings.append(embedding[1:-1].float().mean(axis=0).cpu().numpy())
         if i and i % _SAVE_EVERY == 0:
-            _append_to_dataset(output_dir_path, texts, embeddings)
+            _save_shard(output_dir_path, texts, embeddings, shard_idx)
+            shard_idx += 1
             texts = []
             embeddings = []
     if texts:
-        _append_to_dataset(output_dir_path, texts, embeddings)
+        _save_shard(output_dir_path, texts, embeddings, shard_idx)
 
 
 def _truncate_text(tokenizer: PreTrainedTokenizer, text: str) -> str:
@@ -179,7 +178,8 @@ def main() -> None:
 
     if args.push_to_hub:
         logger.info(f"Pushing dataset to Hub: {args.push_to_hub}")
-        load_from_disk(output_dir).push_to_hub(args.push_to_hub)
+        shard_dirs = sorted(Path(output_dir).glob("shard_*/"))
+        concatenate_datasets([load_from_disk(str(d)) for d in shard_dirs]).push_to_hub(args.push_to_hub)
 
 
 if __name__ == "__main__":
