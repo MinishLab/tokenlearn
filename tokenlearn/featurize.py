@@ -27,6 +27,27 @@ def _save_checkpoint(checkpoints_dir: Path, texts: list[str], embeddings: list[n
     part.save_to_disk(str(checkpoints_dir / f"part_{part_idx:08d}"))
 
 
+def _compact_checkpoints(checkpoints_dir: Path, output_dir: Path, keep_checkpoints: bool) -> None:
+    """Compact checkpoint parts into a single standard HuggingFace dataset."""
+    part_dirs = sorted(checkpoints_dir.glob("part_*/"))
+    if not part_dirs:
+        return
+
+    logger.info("Compacting checkpoints into final dataset...")
+    # Build the compacted dataset in a sibling temp dir, then replace output_dir.
+    # Replacing the whole directory avoids stale Arrow files from older saves.
+    tmp_dir = output_dir.parent / f"{output_dir.name}.tmp"
+    if tmp_dir.exists():
+        shutil.rmtree(tmp_dir)
+    concatenate_datasets([load_from_disk(str(d)) for d in part_dirs]).save_to_disk(str(tmp_dir))
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    tmp_dir.rename(output_dir)
+    if not keep_checkpoints:
+        shutil.rmtree(checkpoints_dir)
+    logger.info(f"Dataset saved to {output_dir}")
+
+
 def featurize(  # noqa C901
     dataset: Iterator[dict[str, str]],
     model: SentenceTransformer,
@@ -86,19 +107,7 @@ def featurize(  # noqa C901
     if texts:
         _save_checkpoint(checkpoints_dir, texts, embeddings, part_idx)
 
-    part_dirs = sorted(checkpoints_dir.glob("part_*/"))
-    if part_dirs:
-        logger.info("Compacting checkpoints into final dataset...")
-        tmp_path = Path(str(output_dir_path) + ".tmp")
-        if tmp_path.exists():
-            shutil.rmtree(tmp_path)
-        concatenate_datasets([load_from_disk(str(d)) for d in part_dirs]).save_to_disk(str(tmp_path))
-        if output_dir_path.exists():
-            shutil.rmtree(output_dir_path)
-        tmp_path.rename(output_dir_path)
-        if not keep_checkpoints:
-            shutil.rmtree(checkpoints_dir)
-        logger.info(f"Dataset saved to {output_dir_path}")
+    _compact_checkpoints(checkpoints_dir, output_dir_path, keep_checkpoints)
 
 
 def _truncate_text(tokenizer: PreTrainedTokenizer, text: str) -> str:

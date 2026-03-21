@@ -40,6 +40,7 @@ def collect_means_and_texts(
     name: str | None = None,
 ) -> tuple[list[str], np.ndarray]:
     """Collect means and texts from a local HuggingFace dataset directory or Hub repo."""
+    # Local path → load Arrow dataset from disk; otherwise treat as a Hub repo ID.
     if Path(data_path).exists():
         dataset = load_from_disk(str(data_path))
     else:
