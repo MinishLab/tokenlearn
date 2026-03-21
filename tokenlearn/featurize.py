@@ -1,11 +1,11 @@
 import argparse
-import json
 import logging
 from pathlib import Path
 from typing import Iterator
 
 import numpy as np
-from datasets import load_dataset
+from datasets import Dataset, Features, Sequence, Value, concatenate_datasets, load_from_disk
+from datasets import load_dataset as load_hf_dataset
 from more_itertools import batched
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
@@ -13,8 +13,21 @@ from transformers.tokenization_utils import PreTrainedTokenizer
 
 _SAVE_EVERY = 32
 
+_FEATURES = Features({"text": Value("string"), "embedding": Sequence(Value("float32"))})
 
 logger = logging.getLogger(__name__)
+
+
+def _append_to_dataset(output_dir: Path, texts: list[str], embeddings: list[np.ndarray]) -> None:
+    """Append a batch of texts and embeddings to the on-disk HuggingFace dataset."""
+    shard = Dataset.from_dict(
+        {"text": texts, "embedding": [e.tolist() for e in embeddings]},
+        features=_FEATURES,
+    )
+    if (output_dir / "dataset_info.json").exists():
+        existing = load_from_disk(str(output_dir))
+        shard = concatenate_datasets([existing, shard])
+    shard.save_to_disk(str(output_dir))
 
 
 def featurize(  # noqa C901
@@ -30,10 +43,10 @@ def featurize(  # noqa C901
     output_dir_path = Path(output_dir)
     output_dir_path.mkdir(parents=True, exist_ok=True)
 
-    # Ugly hack
-    largest_batch = max([int(x.stem.split("_")[1]) for x in list(output_dir_path.glob("*.json"))], default=0)
-    if largest_batch:
-        logger.info(f"Resuming from batch {largest_batch}, skipping previous batches.")
+    rows_done = 0
+    if (output_dir_path / "dataset_info.json").exists():
+        rows_done = len(load_from_disk(str(output_dir_path)))
+        logger.info(f"Resuming from {rows_done} previously written rows.")
 
     texts = []
     embeddings = []
@@ -53,7 +66,7 @@ def featurize(  # noqa C901
         if i * batch_size >= max_means:
             logger.info(f"Reached maximum number of means: {max_means}")
             break
-        if largest_batch and i <= largest_batch:
+        if i * batch_size < rows_done:
             continue
         batch = [x[text_key] for x in batch]
 
@@ -65,13 +78,11 @@ def featurize(  # noqa C901
             texts.append(_truncate_text(tokenizer, text))
             embeddings.append(embedding[1:-1].float().mean(axis=0).cpu().numpy())
         if i and i % _SAVE_EVERY == 0:
-            json.dump(texts, open(output_dir_path / f"feature_{i}.json", "w"), indent=4)
-            np.save(output_dir_path / f"feature_{i}.npy", embeddings)
+            _append_to_dataset(output_dir_path, texts, embeddings)
             texts = []
             embeddings = []
     if texts:
-        json.dump(texts, open(output_dir_path / f"feature_{i}.json", "w"), indent=4)
-        np.save(output_dir_path / f"feature_{i}.npy", embeddings)
+        _append_to_dataset(output_dir_path, texts, embeddings)
 
 
 def _truncate_text(tokenizer: PreTrainedTokenizer, text: str) -> str:
@@ -141,6 +152,12 @@ def main() -> None:
         help="Batch size to use for encoding the texts.",
     )
     parser.add_argument("--max-length", type=int, default=None, help="Maximum token length for the tokenizer.")
+    parser.add_argument(
+        "--push-to-hub",
+        type=str,
+        default=None,
+        help="HuggingFace Hub repo ID to push the dataset to after featurizing (e.g., 'username/my-dataset').",
+    )
 
     args = parser.parse_args()
 
@@ -152,7 +169,7 @@ def main() -> None:
         output_dir = args.output_dir
 
     model = SentenceTransformer(args.model_name)
-    dataset = load_dataset(
+    dataset = load_hf_dataset(
         args.dataset_path,
         name=args.dataset_name,
         split=args.dataset_split,
@@ -160,6 +177,10 @@ def main() -> None:
     )
 
     featurize(iter(dataset), model, output_dir, args.max_means, args.batch_size, args.key, max_length=args.max_length)
+
+    if args.push_to_hub:
+        logger.info(f"Pushing dataset to Hub: {args.push_to_hub}")
+        load_from_disk(output_dir).push_to_hub(args.push_to_hub)
 
 
 if __name__ == "__main__":
