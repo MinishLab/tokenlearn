@@ -40,10 +40,11 @@ def collect_means_and_texts(
     name: str | None = None,
 ) -> tuple[list[str], np.ndarray]:
     """Collect means and texts from a local HuggingFace dataset directory or Hub repo."""
-    # Local path → load Arrow dataset from disk; otherwise treat as a Hub repo ID.
     if Path(data_path).exists():
+        # If path exists, load from disk
         dataset = load_from_disk(str(data_path))
     else:
+        # Attempt to load from HF hub
         dataset = load_dataset(str(data_path), name=name, split=split)
     if max_samples:
         dataset = dataset.select(range(min(max_samples, len(dataset))))
@@ -51,6 +52,7 @@ def collect_means_and_texts(
     texts = dataset["text"]
     vectors = np.array(dataset["embedding"], dtype=np.float32)
 
+    # Filter out any rows where the vector contains NaN values
     non_nan_mask = ~np.isnan(vectors).any(axis=1)
     texts = np.array(texts)[non_nan_mask].tolist()
     vectors = vectors[non_nan_mask]
