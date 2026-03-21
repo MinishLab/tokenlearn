@@ -40,7 +40,19 @@ def main() -> None:
         "--data-path",
         type=str,
         default="data/fineweb_bgebase",
-        help="Path to the HuggingFace dataset directory.",
+        help="Path to a local HuggingFace dataset directory or a Hub repo ID.",
+    )
+    parser.add_argument(
+        "--data-split",
+        type=str,
+        default="train",
+        help="Dataset split to use when loading from the Hub (e.g., 'train', 'validation').",
+    )
+    parser.add_argument(
+        "--data-name",
+        type=str,
+        default=None,
+        help="Dataset configuration name when loading from the Hub (e.g., 'en' for C4).",
     )
     parser.add_argument(
         "--save-path",
@@ -88,7 +100,9 @@ def main() -> None:
     args = parser.parse_args()
 
     # Collect paths for training data
-    train_txt, train_vec = collect_means_and_texts(args.data_path, args.limit_samples)
+    train_txt, train_vec = collect_means_and_texts(
+        args.data_path, args.limit_samples, split=args.data_split, name=args.data_name
+    )
 
     pca_dims = args.pca_dims
 

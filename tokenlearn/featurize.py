@@ -1,5 +1,6 @@
 import argparse
 import logging
+import shutil
 from pathlib import Path
 from typing import Iterator
 
@@ -17,13 +18,13 @@ _FEATURES = Features({"text": Value("string"), "embedding": Sequence(Value("floa
 logger = logging.getLogger(__name__)
 
 
-def _save_shard(output_dir: Path, texts: list[str], embeddings: list[np.ndarray], shard_idx: int) -> None:
-    """Save a shard of texts and embeddings as a HuggingFace dataset."""
-    shard = Dataset.from_dict(
+def _save_checkpoint(checkpoints_dir: Path, texts: list[str], embeddings: list[np.ndarray], part_idx: int) -> None:
+    """Save a checkpoint part as a HuggingFace dataset."""
+    part = Dataset.from_dict(
         {"text": texts, "embedding": [e.tolist() for e in embeddings]},
         features=_FEATURES,
     )
-    shard.save_to_disk(str(output_dir / f"shard_{shard_idx:08d}"))
+    part.save_to_disk(str(checkpoints_dir / f"part_{part_idx:08d}"))
 
 
 def featurize(  # noqa C901
@@ -34,16 +35,19 @@ def featurize(  # noqa C901
     batch_size: int,
     text_key: str,
     max_length: int | None = None,
+    keep_checkpoints: bool = False,
 ) -> None:
     """Make a directory and dump all kinds of data in it."""
     output_dir_path = Path(output_dir)
     output_dir_path.mkdir(parents=True, exist_ok=True)
+    checkpoints_dir = Path(str(output_dir_path) + ".checkpoints")
+    checkpoints_dir.mkdir(exist_ok=True)
 
-    shard_dirs = sorted(output_dir_path.glob("shard_*/"))
-    shard_idx = len(shard_dirs)
-    rows_done = sum(len(load_from_disk(str(d))) for d in shard_dirs)
+    part_dirs = sorted(checkpoints_dir.glob("part_*/"))
+    part_idx = len(part_dirs)
+    rows_done = sum(len(load_from_disk(str(d))) for d in part_dirs)
     if rows_done:
-        logger.info(f"Resuming from {rows_done} previously written rows ({shard_idx} shards).")
+        logger.info(f"Resuming from {rows_done} previously written rows ({part_idx} checkpoint parts).")
 
     texts = []
     embeddings = []
@@ -75,12 +79,26 @@ def featurize(  # noqa C901
             texts.append(_truncate_text(tokenizer, text))
             embeddings.append(embedding[1:-1].float().mean(axis=0).cpu().numpy())
         if i and i % _SAVE_EVERY == 0:
-            _save_shard(output_dir_path, texts, embeddings, shard_idx)
-            shard_idx += 1
+            _save_checkpoint(checkpoints_dir, texts, embeddings, part_idx)
+            part_idx += 1
             texts = []
             embeddings = []
     if texts:
-        _save_shard(output_dir_path, texts, embeddings, shard_idx)
+        _save_checkpoint(checkpoints_dir, texts, embeddings, part_idx)
+
+    part_dirs = sorted(checkpoints_dir.glob("part_*/"))
+    if part_dirs:
+        logger.info("Compacting checkpoints into final dataset...")
+        tmp_path = Path(str(output_dir_path) + ".tmp")
+        if tmp_path.exists():
+            shutil.rmtree(tmp_path)
+        concatenate_datasets([load_from_disk(str(d)) for d in part_dirs]).save_to_disk(str(tmp_path))
+        if output_dir_path.exists():
+            shutil.rmtree(output_dir_path)
+        tmp_path.rename(output_dir_path)
+        if not keep_checkpoints:
+            shutil.rmtree(checkpoints_dir)
+        logger.info(f"Dataset saved to {output_dir_path}")
 
 
 def _truncate_text(tokenizer: PreTrainedTokenizer, text: str) -> str:
@@ -151,6 +169,11 @@ def main() -> None:
     )
     parser.add_argument("--max-length", type=int, default=None, help="Maximum token length for the tokenizer.")
     parser.add_argument(
+        "--keep-checkpoints",
+        action="store_true",
+        help="Keep checkpoint parts after compaction (default: delete them).",
+    )
+    parser.add_argument(
         "--push-to-hub",
         type=str,
         default=None,
@@ -174,12 +197,20 @@ def main() -> None:
         streaming=args.no_streaming,
     )
 
-    featurize(iter(dataset), model, output_dir, args.max_means, args.batch_size, args.key, max_length=args.max_length)
+    featurize(
+        iter(dataset),
+        model,
+        output_dir,
+        args.max_means,
+        args.batch_size,
+        args.key,
+        max_length=args.max_length,
+        keep_checkpoints=args.keep_checkpoints,
+    )
 
     if args.push_to_hub:
         logger.info(f"Pushing dataset to Hub: {args.push_to_hub}")
-        shard_dirs = sorted(Path(output_dir).glob("shard_*/"))
-        concatenate_datasets([load_from_disk(str(d)) for d in shard_dirs]).push_to_hub(args.push_to_hub)
+        load_from_disk(output_dir).push_to_hub(args.push_to_hub)
 
 
 if __name__ == "__main__":
