@@ -4,8 +4,7 @@ from pathlib import Path
 from typing import Iterator
 
 import numpy as np
-from datasets import Dataset, Features, Sequence, Value, concatenate_datasets, load_from_disk
-from datasets import load_dataset as load_hf_dataset
+from datasets import Dataset, Features, Sequence, Value, concatenate_datasets, load_dataset, load_from_disk
 from more_itertools import batched
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
@@ -169,7 +168,7 @@ def main() -> None:
         output_dir = args.output_dir
 
     model = SentenceTransformer(args.model_name)
-    dataset = load_hf_dataset(
+    dataset = load_dataset(
         args.dataset_path,
         name=args.dataset_name,
         split=args.dataset_split,
