@@ -57,7 +57,7 @@ python -m tokenlearn.featurize \
 
 ## Library Authors
 
-Tokenlearn was developed by the [Minish Lab](https://github.com/MinishLab) team consisting of [Stephan Tulkens](https://github.com/stephantul) and [Thomas van Dongen](https://github.com/Pringled).
+Tokenlearn was developed by the [Minish](https://github.com/MinishLab) team consisting of [Stephan Tulkens](https://github.com/stephantul) and [Thomas van Dongen](https://github.com/Pringled).
 
 ## Citation
 
