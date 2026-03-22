@@ -97,6 +97,9 @@ ignore_missing_imports = true
 [tool.setuptools]
 packages = ["tokenlearn"]
 
+[tool.setuptools.package-data]
+tokenlearn = ["datacards/*.md"]
+
 [tool.setuptools_scm]
 # can be empty if no extra settings are needed, presence enables setuptools_scm
 

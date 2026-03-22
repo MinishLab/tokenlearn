@@ -6,10 +6,13 @@ from typing import Iterator
 
 import numpy as np
 from datasets import Dataset, Features, Sequence, Value, concatenate_datasets, load_dataset, load_from_disk
+from huggingface_hub import DatasetCard, DatasetCardData
 from more_itertools import batched
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 from transformers.tokenization_utils import PreTrainedTokenizer
+
+_DATASET_CARD_TEMPLATE = Path(__file__).parent / "datacards" / "dataset_card_template.md"
 
 _SAVE_EVERY = 32
 
@@ -48,6 +51,37 @@ def _compact_checkpoints(checkpoints_dir: Path, output_dir: Path, keep_checkpoin
     if not keep_checkpoints:
         shutil.rmtree(checkpoints_dir)
     logger.info(f"Dataset saved to {output_dir}")
+
+
+def _create_dataset_card(
+    output_dir: Path,
+    model_name: str,
+    source_dataset: str,
+    source_name: str,
+    source_split: str,
+    num_rows: int,
+    embedding_dim: int,
+    repo_id: str | None = None,
+) -> DatasetCard:
+    """Create a dataset card, save it to the output directory, and return it."""
+    card_data = DatasetCardData(
+        language="en",
+        tags=["tokenlearn", "embeddings", "model2vec"],
+    )
+    card = DatasetCard.from_template(
+        card_data,
+        template_path=str(_DATASET_CARD_TEMPLATE),
+        repo_id=repo_id,
+        dataset_name=output_dir.name,
+        model_name=model_name,
+        source_dataset=source_dataset,
+        source_name=source_name,
+        source_split=source_split,
+        num_rows=num_rows,
+        embedding_dim=embedding_dim,
+    )
+    card.save(output_dir / "README.md")
+    return card
 
 
 def featurize(  # noqa C901
@@ -219,9 +253,25 @@ def main() -> None:
         keep_checkpoints=args.keep_checkpoints,
     )
 
-    if args.push_to_hub:
-        logger.info(f"Pushing dataset to Hub: {args.push_to_hub}")
-        load_from_disk(output_dir).push_to_hub(args.push_to_hub)
+    output_dir_path = Path(output_dir)
+    if (output_dir_path / "dataset_info.json").exists():
+        ds = load_from_disk(output_dir)
+        card = _create_dataset_card(
+            output_dir=output_dir_path,
+            model_name=args.model_name,
+            source_dataset=args.dataset_path,
+            source_name=args.dataset_name,
+            source_split=args.dataset_split,
+            num_rows=len(ds),
+            embedding_dim=len(ds[0]["embedding"]),
+            repo_id=args.push_to_hub,
+        )
+        if args.push_to_hub:
+            logger.info(f"Pushing dataset to Hub: {args.push_to_hub}")
+            ds.push_to_hub(args.push_to_hub)
+            card.push_to_hub(args.push_to_hub)
+    else:
+        logger.warning("No data was written — skipping dataset card and Hub push.")
 
 
 if __name__ == "__main__":
