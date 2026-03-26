@@ -14,7 +14,7 @@ from transformers.tokenization_utils import PreTrainedTokenizer
 
 _DATASET_CARD_TEMPLATE = Path(__file__).parent / "datacards" / "dataset_card_template.md"
 
-_SAVE_EVERY = 32
+_SAVE_EVERY = 1024  # rows (≈ 32 batches at the default batch size of 32)
 
 _FEATURES = Features({"text": Value("string"), "embedding": Sequence(Value("float32"))})
 
@@ -22,18 +22,18 @@ logger = logging.getLogger(__name__)
 
 
 def _save_checkpoint(checkpoints_dir: Path, texts: list[str], embeddings: list[np.ndarray], part_idx: int) -> None:
-    """Save a checkpoint part as a HuggingFace dataset."""
+    """Save a checkpoint part as a Parquet file."""
     part = Dataset.from_dict(
         {"text": texts, "embedding": [e.tolist() for e in embeddings]},
         features=_FEATURES,
     )
-    part.save_to_disk(str(checkpoints_dir / f"part_{part_idx:08d}"))
+    part.to_parquet(str(checkpoints_dir / f"shard_{part_idx:08d}.parquet"))
 
 
 def _compact_checkpoints(checkpoints_dir: Path, output_dir: Path, keep_checkpoints: bool) -> None:
-    """Compact checkpoint parts into a single standard HuggingFace dataset."""
-    part_dirs = sorted(checkpoints_dir.glob("part_*/"))
-    if not part_dirs:
+    """Compact checkpoint shards into a single standard HuggingFace dataset."""
+    shard_files = sorted(checkpoints_dir.glob("shard_*.parquet"))
+    if not shard_files:
         return
 
     logger.info("Compacting checkpoints into final dataset...")
@@ -41,8 +41,8 @@ def _compact_checkpoints(checkpoints_dir: Path, output_dir: Path, keep_checkpoin
     tmp_dir = output_dir.parent / f"{output_dir.name}.tmp"
     if tmp_dir.exists():
         shutil.rmtree(tmp_dir)
-    # Load all parts and concatenate them into a single dataset, then save to the temp dir.
-    dataset = concatenate_datasets([load_from_disk(str(d)) for d in part_dirs])
+    # Load all shards and concatenate them into a single dataset, then save to the temp dir.
+    dataset = concatenate_datasets([Dataset.from_parquet(str(f)) for f in shard_files])
     dataset.save_to_disk(str(tmp_dir))
     if output_dir.exists():
         # Remove the old output dir before renaming the temp dir to avoid leaving stale Arrow files from previous runs.
@@ -88,7 +88,7 @@ def featurize(  # noqa C901
     dataset: Iterator[dict[str, str]],
     model: SentenceTransformer,
     output_dir: str,
-    max_means: int,
+    max_rows: int,
     batch_size: int,
     text_key: str,
     max_length: int | None = None,
@@ -100,11 +100,11 @@ def featurize(  # noqa C901
     checkpoints_dir = Path(str(output_dir_path) + ".checkpoints")
     checkpoints_dir.mkdir(exist_ok=True)
 
-    part_dirs = sorted(checkpoints_dir.glob("part_*/"))
-    part_idx = len(part_dirs)
-    rows_done = sum(len(load_from_disk(str(d))) for d in part_dirs)
+    shard_files = sorted(checkpoints_dir.glob("shard_*.parquet"))
+    part_idx = len(shard_files)
+    rows_done = sum(len(Dataset.from_parquet(str(f))) for f in shard_files)
     if rows_done:
-        logger.info(f"Resuming from {rows_done} previously written rows ({part_idx} checkpoint parts).")
+        logger.info(f"Resuming from {rows_done} previously written rows ({part_idx} checkpoint shards).")
 
     texts = []
     embeddings = []
@@ -121,11 +121,16 @@ def featurize(  # noqa C901
     # Binding i in case the dataset is empty.
     i = 0
     for i, batch in tqdm(enumerate(batched(dataset, n=batch_size))):
-        if i * batch_size >= max_means:
-            logger.info(f"Reached maximum number of means: {max_means}")
+        batch = list(batch)
+        rows_processed = i * batch_size
+        if rows_processed >= max_rows:
+            logger.info(f"Reached maximum number of rows: {max_rows}")
             break
-        if i * batch_size < rows_done:
+        # Skip batches fully covered by a previous run; trim those that straddle the boundary.
+        if rows_processed + len(batch) <= rows_done:
             continue
+        if rows_processed < rows_done:
+            batch = batch[rows_done - rows_processed :]
         batch = [x[text_key] for x in batch]
 
         if not all(isinstance(x, str) for x in batch):
@@ -135,7 +140,7 @@ def featurize(  # noqa C901
         for text, embedding in zip(batch, batch_embeddings):
             texts.append(_truncate_text(tokenizer, text))
             embeddings.append(embedding[1:-1].float().mean(axis=0).cpu().numpy())
-        if i and i % _SAVE_EVERY == 0:
+        if len(texts) >= _SAVE_EVERY:
             _save_checkpoint(checkpoints_dir, texts, embeddings, part_idx)
             part_idx += 1
             texts = []
@@ -195,10 +200,10 @@ def main() -> None:
         help="Disable streaming mode when loading the dataset.",
     )
     parser.add_argument(
-        "--max-means",
+        "--max-rows",
         type=int,
         default=1000000,
-        help="The maximum number of mean embeddings to generate.",
+        help="The maximum number of rows to featurize.",
     )
     parser.add_argument(
         "--key",
@@ -246,7 +251,7 @@ def main() -> None:
         iter(dataset),
         model,
         output_dir,
-        args.max_means,
+        args.max_rows,
         args.batch_size,
         args.key,
         max_length=args.max_length,
