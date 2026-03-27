@@ -118,8 +118,6 @@ def featurize(  # noqa C901
         tokenizer.model_max_length = max_length
         model.max_seq_length = max_length
         logger.info(f"Set tokenizer maximum length to {max_length}.")
-    # Binding i in case the dataset is empty.
-    i = 0
     for i, batch in tqdm(enumerate(batched(dataset, n=batch_size))):
         batch = list(batch)
         rows_processed = i * batch_size
