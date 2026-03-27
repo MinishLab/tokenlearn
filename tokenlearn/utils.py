@@ -1,10 +1,10 @@
-import json
 import logging
 from collections import Counter
 from pathlib import Path
 
 import numpy as np
 import regex
+from datasets import load_dataset, load_from_disk
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
@@ -33,43 +33,32 @@ def create_vocab(texts: list[str], vocab_size: int = 56_000) -> list[str]:
     return vocab
 
 
-def collect_means_and_texts(paths: list[Path], max_samples: int | None = None) -> tuple[list[str], np.ndarray]:
-    """Collect means and texts from a list of paths."""
-    txts = []
-    vectors_list = []
-    for items_path in tqdm(paths, desc="Collecting means and texts"):
-        if not items_path.name.endswith(".json"):
-            continue
-        base_path = items_path.with_name(items_path.stem.replace("", ""))
-        vectors_path = items_path.with_name(base_path.name.replace(".json", "") + ".npy")
-        try:
-            with open(items_path, "r") as f:
-                items = json.load(f)
-            vectors = np.load(vectors_path, allow_pickle=False)
-            vectors = vectors.astype(np.float32)
-        except (KeyError, FileNotFoundError, ValueError) as e:
-            logger.info(f"Error loading data from {base_path}: {e}")
-            continue
-
-        # Filter out any NaN vectors before appending
-        vectors = np.stack(vectors)
-        items = np.array(items)
-        non_nan_indices = ~np.isnan(vectors).any(axis=1)
-        valid_vectors = vectors[non_nan_indices]
-        valid_items = items[non_nan_indices]
-        txts.extend(valid_items.tolist())
-        vectors_list.append(valid_vectors)
-
-        if max_samples and len(txts) >= max_samples:
-            break
-
-    if vectors_list:
-        all_vectors = np.concatenate(vectors_list, axis=0)
+def collect_means_and_texts(
+    data_path: str | Path,
+    max_samples: int | None = None,
+    split: str = "train",
+    name: str | None = None,
+) -> tuple[list[str], np.ndarray]:
+    """Collect means and texts from a local HuggingFace dataset directory or Hub repo."""
+    if Path(data_path).exists():
+        # If path exists, load from disk
+        dataset = load_from_disk(str(data_path))
     else:
-        all_vectors = np.array([])
+        # Attempt to load from HF hub
+        dataset = load_dataset(str(data_path), name=name, split=split)
+    if max_samples:
+        dataset = dataset.select(range(min(max_samples, len(dataset))))
+
+    texts = dataset["text"]
+    vectors = np.array(dataset["embedding"], dtype=np.float32)
+
+    # Filter out any rows where the vector contains NaN values
+    non_nan_mask = ~np.isnan(vectors).any(axis=1)
+    texts = np.array(texts)[non_nan_mask].tolist()
+    vectors = vectors[non_nan_mask]
 
     if max_samples:
-        txts = txts[:max_samples]
-        all_vectors = all_vectors[:max_samples]
+        texts = texts[:max_samples]
+        vectors = vectors[:max_samples]
 
-    return txts, all_vectors
+    return texts, vectors

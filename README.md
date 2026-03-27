@@ -30,9 +30,20 @@ python3 -m tokenlearn.featurize \
     --dataset-split "train"
 ```
 
+The output is a standard HuggingFace dataset saved to `--output-dir`. You can optionally push it to the Hub:
+
+```bash
+python3 -m tokenlearn.featurize --model-name "baai/bge-base-en-v1.5" --output-dir "data/c4_features" --push-to-hub "username/my-featurized-dataset"
+```
+
 To train a model on the featurized data, the `tokenlearn-train` CLI can be used:
 ```bash
 python3 -m tokenlearn.train --model-name "baai/bge-base-en-v1.5" --data-path "data/c4_features" --save-path "<path-to-save-model>"
+```
+
+`--data-path` also accepts a HuggingFace Hub repo ID if you have a featurized dataset there:
+```bash
+python3 -m tokenlearn.train --model-name "baai/bge-base-en-v1.5" --data-path "username/my-featurized-dataset" --save-path "<path-to-save-model>"
 ```
 
 Training will create two models:

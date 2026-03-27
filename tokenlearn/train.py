@@ -1,6 +1,5 @@
 import argparse
 import logging
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -41,7 +40,19 @@ def main() -> None:
         "--data-path",
         type=str,
         default="data/fineweb_bgebase",
-        help="Path to the directory containing the dataset.",
+        help="Path to a local HuggingFace dataset directory or a Hub repo ID.",
+    )
+    parser.add_argument(
+        "--data-split",
+        type=str,
+        default="train",
+        help="Dataset split to use when loading from the Hub (e.g., 'train', 'validation').",
+    )
+    parser.add_argument(
+        "--data-name",
+        type=str,
+        default=None,
+        help="Dataset configuration name when loading from the Hub (e.g., 'en' for C4).",
     )
     parser.add_argument(
         "--save-path",
@@ -89,8 +100,9 @@ def main() -> None:
     args = parser.parse_args()
 
     # Collect paths for training data
-    paths = sorted(Path(args.data_path).glob("*.json"))
-    train_txt, train_vec = collect_means_and_texts(paths, args.limit_samples)
+    train_txt, train_vec = collect_means_and_texts(
+        args.data_path, args.limit_samples, split=args.data_split, name=args.data_name
+    )
 
     pca_dims = args.pca_dims
 
