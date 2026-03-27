@@ -20,7 +20,7 @@
 
 </div>
 
-Tokenlearn is a method to pre-train [Model2Vec](https://github.com/MinishLab/model2vec) static embedding models. The original version, used to train the [potion](https://huggingface.co/collections/minishlab/potion-6721e9e87bc4404a85e3467b) models (`potion-base-2M`, `potion-base-4M`, `potion-base-8M`, `potion-base-32M`), is described in our [original blogpost](https://minish.ai/blog/2024-10-29-tokenlearn-blogpost/). The current version, used to train [potion-multilingual-128M](https://huggingface.co/minishlab/potion-multilingual-128M), is covered in our [Tokenlearn 2.0 post](https://minish.ai/blog/2025-05-31-tokenlearn-release/).
+Tokenlearn is a method to pre-train [Model2Vec](https://github.com/MinishLab/model2vec) static embedding models. The original version, used to train the first [Potion](https://huggingface.co/collections/minishlab/potion) models ([potion-base-32M](https://huggingface.co/minishlab/potion-base-32M), [potion-base-8M](https://huggingface.co/minishlab/potion-base-8M), [potion-base-4M](https://huggingface.co/minishlab/potion-base-4M), [potion-base-2M](https://huggingface.co/minishlab/potion-base-2M)), is described in our [original blogpost](https://minish.ai/blog/2024-10-29-tokenlearn-blogpost/). The current version, used to train [potion-multilingual-128M](https://huggingface.co/minishlab/potion-multilingual-128M), is covered in our [Tokenlearn 2.0 post](https://minish.ai/blog/2025-05-31-tokenlearn-release/).
 
 ## Quickstart
 
