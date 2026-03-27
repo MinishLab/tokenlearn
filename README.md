@@ -1,6 +1,6 @@
 
 <h2 align="center">
-  <img width="35%" alt="Tokenlearn logo" src="assets/images/tokenlearn_logo.webp"><br/>
+  <img width="25%" alt="Tokenlearn logo" src="assets/images/tokenlearn_logo.webp"><br/>
   Pre-train Static Word Embeddings
 </h2>
 
@@ -30,7 +30,7 @@ Install the package with:
 pip install tokenlearn
 ```
 
-Tokenlearn consists of two steps: **featurize** (create mean token embeddings from a sentence transformer) and **train** (distill a static Model2Vec model from those embeddings).
+Tokenlearn consists of two steps: **featurize** (create mean token embeddings from a sentence transformer) and **train** (pre-train a static Model2Vec model using those embeddings as targets).
 
 ## Featurize
 
