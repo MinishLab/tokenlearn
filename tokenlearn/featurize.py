@@ -234,6 +234,7 @@ def _parse_args() -> Namespace:
         default=None,
         help="HuggingFace Hub repo ID to push the dataset to after featurizing (e.g., 'username/my-dataset').",
     )
+    parser.add_argument("--trust-remote-code", action="store_true", help="Trust remote code from the model repository.")
 
     return parser.parse_args()
 
@@ -249,7 +250,7 @@ def main() -> None:
     else:
         output_dir = args.output_dir
 
-    model = SentenceTransformer(args.model_name)
+    model = SentenceTransformer(args.model_name, trust_remote_code=args.trust_remote_code)
     if Path(args.dataset_path).exists():
         dataset = load_from_disk(args.dataset_path)
         if isinstance(dataset, DatasetDict):
