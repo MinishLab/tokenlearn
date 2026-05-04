@@ -105,3 +105,6 @@ tokenlearn = ["datacards/*.md"]
 
 [tool.setuptools.dynamic]
 version = {attr = "tokenlearn.version.__version__"}
+
+[tool.uv]
+exclude-newer = "1 week"
