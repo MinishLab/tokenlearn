@@ -4,7 +4,7 @@ description = "Pre-train Static Embedders"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
-authors = [{name = "Thomas van Dongen", email = "thomas123@live.nl"}, { name = "Stéphan Tulkens", email = "stephantul@gmail.com"}]
+authors = [{name = "Thomas van Dongen", email = "thomasvdongen@proton.me"}, { name = "Stéphan Tulkens", email = "stephantul@gmail.com"}]
 dynamic = ["version"]
 
 classifiers = [
