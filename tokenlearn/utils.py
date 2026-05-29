@@ -11,7 +11,7 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 
-def create_vocab(texts: dict[str, int], vocab_size: int = 56_000) -> list[str]:
+def create_vocab(texts: list[str], vocab_size: int = 56_000) -> list[str]:
     """Create a vocabulary from a list of texts.
 
     :param texts: The list of texts to create the vocabulary from.
@@ -22,9 +22,9 @@ def create_vocab(texts: dict[str, int], vocab_size: int = 56_000) -> list[str]:
 
     # Tokenize all texts
     token_counts: Counter[str] = Counter()
-    for text, frequency in tqdm(texts.items(), desc="Tokenizing texts"):
+    for text in tqdm(texts, desc="Tokenizing texts"):
         for word in tokenizer_regex.findall(text.lower()):
-            token_counts[word] += frequency
+            token_counts[word] += 1
 
     # Get the most common tokens as the vocabulary
     vocab = [word for word, _ in token_counts.most_common(vocab_size)]

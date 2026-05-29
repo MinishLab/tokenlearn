@@ -111,7 +111,7 @@ if __name__ == "__main__":
         vocab_size = args.vocab_size
         if vocab_size:
             # Create a vocabulary if a vocab size is specified
-            vocab = create_vocab(texts={k: 1 for k in train_txt}, vocab_size=vocab_size)
+            vocab = create_vocab(texts=train_txt, vocab_size=vocab_size)
             logger.info(f"Vocabulary created with {len(vocab)} tokens.")
         model = distill(
             model_name=args.model_name,
