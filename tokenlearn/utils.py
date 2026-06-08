@@ -34,7 +34,7 @@ def create_vocab(texts: list[str], vocab_size: int = 56_000) -> list[str]:
 def collect_means_and_texts(
     data_path: str | Path,
     max_samples: int | None = None,
-    split: str | None = "train",
+    split: str | None = None,
     name: str | None = None,
 ) -> tuple[list[str], np.ndarray]:
     """Collect means and texts from a local HuggingFace dataset directory or Hub repo."""

@@ -41,7 +41,7 @@ def _parse_args() -> Namespace:
     parser.add_argument(
         "--data-split",
         type=str,
-        default="train",
+        default=None,
         help="Dataset split to use when loading from the Hub (e.g., 'train', 'validation').",
     )
     parser.add_argument(
