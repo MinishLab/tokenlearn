@@ -3,7 +3,7 @@ name = "tokenlearn"
 description = "Pre-train Static Embedders"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [{name = "Thomas van Dongen", email = "thomasvdongen@proton.me"}, { name = "Stéphan Tulkens", email = "stephantul@gmail.com"}]
 dynamic = ["version"]
 
@@ -23,12 +23,11 @@ classifiers = [
 ]
 
 dependencies = [
-    "model2vec[distill,train]>=0.5.0",
+    "model2vec[distill,train]>=0.8.2",
     "sentence-transformers",
     "torch",
     "datasets",
     "more-itertools>=10.5.0",
-    "packaging>=25.0",
 ]
 
 [build-system]
@@ -37,7 +36,6 @@ build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
 dev = [
-    "black",
     "ipython",
     "mypy",
     "pre-commit",
@@ -73,10 +71,10 @@ select = [
     "T20",
 ]
 ignore = [
-    # Allow self and cls to be untyped, and allow Any type
-    "ANN101", "ANN102", "ANN401",
+    # Allow Any type
+    "ANN401",
     # Pydocstyle ignores
-    "D100", "D101", "D104", "D203", "D212", "D401",
+    "D100", "D101", "D104", "D203", "D213", "D401",
     # Allow use of f-strings in logging
     "G004"
 ]

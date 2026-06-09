@@ -1,16 +1,16 @@
-import argparse
 import logging
 import shutil
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, cast
 
 import numpy as np
-from datasets import Dataset, Features, Sequence, Value, concatenate_datasets, load_dataset, load_from_disk
+from datasets import Dataset, DatasetDict, Features, Sequence, Value, concatenate_datasets, load_dataset, load_from_disk
 from huggingface_hub import DatasetCard, DatasetCardData
 from more_itertools import batched
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
-from transformers.tokenization_utils import PreTrainedTokenizer
+from transformers import PreTrainedTokenizer
 
 _DATASET_CARD_TEMPLATE = Path(__file__).parent / "datacards" / "dataset_card_template.md"
 
@@ -84,8 +84,8 @@ def _create_dataset_card(
     return card
 
 
-def featurize(  # noqa C901
-    dataset: Iterator[dict[str, str]],
+def featurize(
+    dataset: Dataset,
     model: SentenceTransformer,
     output_dir: str,
     max_rows: int,
@@ -109,8 +109,7 @@ def featurize(  # noqa C901
     texts = []
     embeddings = []
     dim = model.get_sentence_embedding_dimension()
-    if dim is None:
-        raise ValueError("Model has no sentence embedding dimension.")
+    assert dim is not None
 
     tokenizer: PreTrainedTokenizer = model.tokenizer
     if max_length is not None:
@@ -118,7 +117,7 @@ def featurize(  # noqa C901
         tokenizer.model_max_length = max_length
         model.max_seq_length = max_length
         logger.info(f"Set tokenizer maximum length to {max_length}.")
-    for i, batch in tqdm(enumerate(batched(dataset, n=batch_size))):
+    for i, batch in enumerate(tqdm(batched(dataset, n=batch_size))):
         batch = list(batch)
         rows_processed = i * batch_size
         if rows_processed >= max_rows:
@@ -129,15 +128,11 @@ def featurize(  # noqa C901
             continue
         if rows_processed < rows_done:
             batch = batch[rows_done - rows_processed :]
-        batch = [x[text_key] for x in batch]
+        batch_texts: list[str] = [x[text_key] for x in batch]  # type: ignore
 
-        if not all(isinstance(x, str) for x in batch):
-            raise ValueError(f"Detected non-string at batch: {i}")
-
-        batch_embeddings = model.encode(batch, output_value="token_embeddings")  # type: ignore  # Annoying
-        for text, embedding in zip(batch, batch_embeddings):
-            texts.append(_truncate_text(tokenizer, text))
-            embeddings.append(embedding[1:-1].float().mean(axis=0).cpu().numpy())
+        for txt, emb in _encode(batch_texts, model, tokenizer):
+            texts.append(txt)
+            embeddings.append(emb)
         if len(texts) >= _SAVE_EVERY:
             _save_checkpoint(checkpoints_dir, texts, embeddings, part_idx)
             part_idx += 1
@@ -149,19 +144,31 @@ def featurize(  # noqa C901
     _compact_checkpoints(checkpoints_dir, output_dir_path, keep_checkpoints)
 
 
+def _encode(
+    batch: list[str], model: SentenceTransformer, tokenizer: PreTrainedTokenizer
+) -> Iterator[tuple[str, np.ndarray]]:
+    """Encode a batch using a model and tokenizer."""
+    batch_embeddings = cast(np.ndarray, model.encode(batch, output_value="token_embeddings", convert_to_numpy=True))
+    for text, embedding in zip(batch, batch_embeddings):
+        truncated = _truncate_text(tokenizer, text)
+        emb = embedding[1:-1].float().mean(axis=0).cpu().numpy()
+        yield truncated, emb
+
+
 def _truncate_text(tokenizer: PreTrainedTokenizer, text: str) -> str:
     """Truncate text to fit the tokenizer's maximum length."""
-    tokens = tokenizer.encode(
+    tokens = tokenizer(
         text,
         truncation=True,
         max_length=tokenizer.model_max_length,
-    )
-    return tokenizer.decode(tokens, skip_special_tokens=True)
+        return_offsets_mapping=True,
+    )[0]
+    max_offset = max([e for _, e in tokens.offsets])
+    return text[:max_offset]
 
 
-def main() -> None:
-    """Main function to featurize texts using a sentence transformer."""
-    parser = argparse.ArgumentParser(description="Featurize texts using a sentence transformer.")
+def _parse_args() -> Namespace:
+    parser = ArgumentParser(description="Featurize texts using a sentence transformer.")
     parser.add_argument(
         "--model-name",
         type=str,
@@ -171,19 +178,19 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=str,
-        default=None,
         help="Directory to save the featurized texts.",
+        required=True,
     )
     parser.add_argument(
         "--dataset-path",
         type=str,
-        default="allenai/c4",
         help="The dataset path or name (e.g. 'allenai/c4').",
+        required=True,
     )
     parser.add_argument(
         "--dataset-name",
         type=str,
-        default="en",
+        default="default",
         help="The dataset configuration name (e.g., 'en' for C4).",
     )
     parser.add_argument(
@@ -227,8 +234,14 @@ def main() -> None:
         default=None,
         help="HuggingFace Hub repo ID to push the dataset to after featurizing (e.g., 'username/my-dataset').",
     )
+    parser.add_argument("--trust-remote-code", action="store_true", help="Trust remote code from the model repository.")
 
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def main() -> None:
+    """Main function to featurize texts using a sentence transformer."""
+    args = _parse_args()
 
     if args.output_dir is None:
         model_name = args.model_name.replace("/", "_")
@@ -237,16 +250,24 @@ def main() -> None:
     else:
         output_dir = args.output_dir
 
-    model = SentenceTransformer(args.model_name)
-    dataset = load_dataset(
-        args.dataset_path,
-        name=args.dataset_name,
-        split=args.dataset_split,
-        streaming=args.no_streaming,
-    )
+    model = SentenceTransformer(args.model_name, trust_remote_code=args.trust_remote_code)
+    if Path(args.dataset_path).exists():
+        dataset = load_from_disk(args.dataset_path)
+        if isinstance(dataset, DatasetDict):
+            dataset = dataset[args.dataset_split]
+    else:
+        dataset = cast(
+            Dataset,
+            load_dataset(
+                args.dataset_path,
+                name=args.dataset_name,
+                split=args.dataset_split,
+                streaming=args.no_streaming,
+            ),
+        )
 
     featurize(
-        iter(dataset),
+        dataset,
         model,
         output_dir,
         args.max_rows,
